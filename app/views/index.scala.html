@@ -1,5 +1,43 @@
 @()
 
-@main("Welcome to Play") {
-  <h1>Welcome to Play!</h1>
+@main("FlickLytics") {
+
+  <div class="container mt-4 d-flex justify-content-center">
+    <div class="col-md-8 col-lg-6 text-center">
+      <div class="card shadow-sm p-4">
+        <h1 class="mb-4">Welcome to FlickLytics</h1>
+
+        <div class="row g-3 align-items-end">
+
+          <div class="col-md-9 text-start">
+            <div class="mb-3">
+              <input
+              type="text"
+              class="form-control"
+              placeholder="Enter search terms">
+            </div>
+
+            <div>
+              <select class="form-select">
+                <option selected disabled>
+                  Select category
+                </option>
+                <option value="movie">Movie</option>
+                <option value="tv">TV show</option>
+                <option value="person">Person</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="col-md-3 d-grid">
+            <button class="btn btn-primary h-100">
+              Go
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
 }
