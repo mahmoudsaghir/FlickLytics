@@ -1,0 +1,7 @@
+#search_form .is-invalid {
+    border-color: red !important;
+}
+
+#search_form dd.error {
+    display: none;
+}
