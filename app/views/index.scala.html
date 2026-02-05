@@ -1,43 +1,61 @@
-@()
+@(searchForm: Form[forms.SearchForm])(implicit request: Http.Request, messages: MessagesProvider)
 
 @main("FlickLytics") {
 
-  <div class="container mt-4 d-flex justify-content-center">
-    <div class="col-md-8 col-lg-6 text-center">
-      <div class="card shadow-sm p-4">
-        <h1 class="mb-4">Welcome to FlickLytics</h1>
+    <div class="container mt-4 d-flex justify-content-center">
+        <div class="col-md-8 col-lg-6 text-center">
+            <div class="card shadow-sm p-4">
+                <h1 class="mb-4 text-center">Welcome to FlickLytics</h1>
 
-        <div class="row g-3 align-items-end">
+                @helper.form(routes.HomeController.search()) {
+                    @helper.CSRF.formField
 
-          <div class="col-md-9 text-start">
-            <div class="mb-3">
-              <input
-              type="text"
-              class="form-control"
-              placeholder="Enter search terms">
+                    <div class="row g-3 align-items-end">
+
+                        <div id="search_form" class="col-md-9 text-start">
+
+                            <div class="">
+                            @helper.inputText(
+                                searchForm("query"),
+                                Symbol("_label") -> null,
+                                Symbol("class") -> {
+                                    if(searchForm("query").hasErrors) "form-control is-invalid" else "form-control"
+                                },
+                                Symbol("placeholder") -> "Enter search terms",
+                                Symbol("_showConstraints") -> false
+                            )
+                            </div>
+
+                            <div class="">
+                            @helper.select(
+                                searchForm("category"),
+                                options = Seq(
+                                    "movie" -> "Movie",
+                                    "tv" -> "TV Show",
+                                    "person" -> "Person"
+                                ),
+                                Symbol("_label") -> null,
+                                Symbol("class") -> {
+                                    if(searchForm("category").hasErrors) "form-select is-invalid" else "form-select"
+                                },
+                                Symbol("_default") -> "Select a category",
+                                Symbol("_showConstraints") -> false
+                            )
+                            </div>
+
+                        </div>
+
+                        <div class="col-md-3 d-grid mb-3">
+                            <button type="submit" class="btn btn-primary h-100">
+                                Go
+                            </button>
+                        </div>
+
+                    </div>
+
+                }
             </div>
-
-            <div>
-              <select class="form-select">
-                <option selected disabled>
-                  Select category
-                </option>
-                <option value="movie">Movie</option>
-                <option value="tv">TV show</option>
-                <option value="person">Person</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="col-md-3 d-grid">
-            <button class="btn btn-primary h-100">
-              Go
-            </button>
-          </div>
-
         </div>
-      </div>
     </div>
-  </div>
 
 }
