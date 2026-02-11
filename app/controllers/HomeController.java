@@ -1,14 +1,34 @@
 package controllers;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.typesafe.config.Config;
 import forms.SearchForm;
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
 import play.i18n.MessagesApi;
+import play.libs.Json;
+import play.libs.concurrent.ClassLoaderExecutionContext;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
+
 import javax.inject.Inject;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * This controller contains an action to handle HTTP requests
@@ -18,34 +38,188 @@ public class HomeController extends Controller {
 
     private final FormFactory formFactory;
     private final MessagesApi messagesApi;
+    private final ClassLoaderExecutionContext clExecutionContext;
+    private final String tmdbToken;
+
+    // cache for search results
+    private static final Map<String, JsonNode> searchCache = new ConcurrentHashMap<>();
 
     @Inject
-    public HomeController(FormFactory formFactory, MessagesApi messagesApi) {
+    public HomeController(FormFactory formFactory, MessagesApi messagesApi,
+                          ClassLoaderExecutionContext clExecutionContext, Config config) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
+        this.clExecutionContext = clExecutionContext;
+        this.tmdbToken = config.getString("tmdb.api.key");
     }
 
     /**
-     * An action that renders an HTML page with a welcome message.
-     * The configuration in the <code>routes</code> file means that
-     * this method will be called when the application receives a
-     * <code>GET</code> request with a path of <code>/</code>.
+     * An action that renders the index page with an empty form.
+     *
+     * @param request The HTTP request
+     * @return A promise to render the index page
+     * @author Mahmoud Saghir
      */
-    public Result index(Http.Request request) {
-        // Pass an empty form to the template for display
-        Form<SearchForm> form = formFactory.form(SearchForm.class);
+    public CompletionStage<Result> index(Http.Request request) {
         Messages messages = messagesApi.preferred(request);
-        return ok(views.html.index.render(form, request, messages));
+        Form<SearchForm> form = formFactory.form(SearchForm.class);
+        return CompletableFuture.completedFuture(
+                ok(views.html.index.render(form, request, messages, null))
+                        .withNewSession()
+        );
     }
 
-    public Result search(Http.Request request) {
-        Form<SearchForm> form = formFactory.form(SearchForm.class).bindFromRequest(request);
+    /***
+     * An action that handles the search form submission, performs the TMDb API call,
+     * processes the results, and renders the index page with search results.
+     * @author Mahmoud Saghir
+     * @param request The HTTP request
+     * @return A promise to render the index page with search results
+     */
+    public CompletionStage<Result> search(Http.Request request) {
         Messages messages = messagesApi.preferred(request);
+        Form<SearchForm> form = formFactory.form(SearchForm.class).bindFromRequest(request);
 
         if (form.hasErrors()) {
-            return badRequest(views.html.index.render(form, request, messages));
+            // Render the page with the submitted form to show errors
+            return CompletableFuture.completedFuture(ok(views.html.index.render(form, request, messages, null)));
         }
 
-        return ok("Search works");
+        String query = form.get().query;
+        String category = form.get().category;
+
+        // Run API call asynchronously using supplyAsync and ClassLoaderExecutionContext
+        return CompletableFuture.supplyAsync(() -> {
+                    try {
+                        String searchUrl = "https://api.themoviedb.org/3/search/";
+                        if (category.equals("movie"))
+                            searchUrl += "movie?query=" + query;
+                        else if (category.equals("tv"))
+                            searchUrl += "tv?query=" + query;
+                        else if (category.equals("person"))
+                            searchUrl += "person?query=" + query;
+
+                        URL url = new URL(searchUrl);
+                        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                        conn.setRequestMethod("GET");
+                        conn.setRequestProperty("Authorization", "Bearer " + this.tmdbToken);
+                        conn.setRequestProperty("Accept", "application/json");
+
+                        BufferedReader in = new BufferedReader(
+                                new InputStreamReader(conn.getInputStream())
+                        );
+                        String inputLine;
+                        StringBuilder response = new StringBuilder();
+                        while ((inputLine = in.readLine()) != null) {
+                            response.append(inputLine);
+                        }
+                        in.close();
+
+                        // Parse the raw JSON
+                        JsonNode rootNode = Json.parse(response.toString());
+                        ArrayNode resultsArray = (ArrayNode) rootNode.get("results");
+                        ObjectNode filteredResponse = Json.newObject();
+
+                        List<ObjectNode> filteredResultsList = StreamSupport.stream(resultsArray.spliterator(), false)
+                                .map(item -> {
+                                    ObjectNode filteredItem = Json.newObject();
+                                    if (category.equals("movie")) {
+                                        filteredItem.put("id", item.path("id").asInt(0));
+                                        filteredItem.put("title", item.path("title").asText(""));
+                                        filteredItem.put("link", "/movie/" + item.path("id").asText(""));
+                                        filteredItem.put("language", item.path("original_language").asText(""));
+                                        // genres is an array of genre IDs, keep as array of ints
+                                        filteredItem.set("genre_ids", item.path("genre_ids"));
+                                        filteredItem.put("release_date", item.path("release_date").asText(""));
+                                        filteredItem.put("popularity", item.path("popularity").asDouble(0.0));
+                                        filteredItem.put("vote_average", item.path("vote_average").asDouble(0.0));
+                                    } else if (category.equals("tv")) {
+                                        filteredItem.put("id", item.path("id").asInt(0));
+                                        filteredItem.put("name", item.path("name").asText(""));
+                                        filteredItem.put("link", "/tv/" + item.path("id").asText(""));
+                                        filteredItem.put("language", item.path("original_language").asText(""));
+                                        filteredItem.set("genre_ids", item.path("genre_ids"));
+                                        filteredItem.put("first_air_date", item.path("first_air_date").asText(""));
+                                        filteredItem.put("popularity", item.path("popularity").asDouble(0.0));
+                                        filteredItem.put("vote_average", item.path("vote_average").asDouble(0.0));
+                                    } else {
+                                        filteredItem.put("id", item.path("id").asInt(0));
+                                        filteredItem.put("name", item.path("name").asText(""));
+                                        filteredItem.put("photo_link", item.path("profile_path").isNull() || item.path("profile_path").asText().isEmpty() ? "" : "https://image.tmdb.org/t/p/w500" + item.path("profile_path").asText(""));
+                                        filteredItem.put("gender", item.path("gender").asInt(0));
+                                        filteredItem.put("popularity", item.path("popularity").asDouble(0.0));
+                                        filteredItem.put("known_for_department", item.path("known_for_department").asText(""));
+                                        ArrayNode knownForArray = Json.newArray();
+                                        JsonNode knownFor = item.path("known_for");
+                                        if (knownFor.isArray()) {
+                                            for (JsonNode knownForItem : knownFor) {
+                                                ObjectNode knownForFiltered = Json.newObject();
+                                                knownForFiltered.put("title", knownForItem.has("title") ? knownForItem.path("title").asText("") : knownForItem.path("name").asText(""));
+                                                knownForFiltered.put("link", knownForItem.has("title") ? "/movie/" + knownForItem.path("id").asText("") : "/tv/" + knownForItem.path("id").asText(""));
+                                                knownForFiltered.put("media_type", knownForItem.path("media_type").asText(""));
+                                                knownForArray.add(knownForFiltered);
+                                            }
+                                        }
+                                        filteredItem.set("known_for", knownForArray);
+                                    }
+                                    return filteredItem;
+                                })
+                                .limit(10)
+                                .collect(Collectors.toList());
+
+                        ArrayNode filteredResults = Json.newArray();
+                        filteredResultsList.stream().forEach(filteredResults::add);
+
+                        // Use the original total_results from TMDb
+                        int totalResults = rootNode.path("total_results").asInt(0);
+
+                        // Build the filtered response object
+                        ObjectNode filteredResponseSafe = Json.newObject();
+                        filteredResponseSafe.put("total_results", totalResults);
+                        filteredResponseSafe.set("results", filteredResults);
+
+                        // Return the JSON string for thenApply
+                        return filteredResponseSafe.toString();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return "{\"error\":\"Failed to fetch TMDb data\"}";
+                    }
+                }, clExecutionContext.current())
+                .thenApply(resultsJson -> {
+                    // Parse new search result
+                    JsonNode newSearchNode = Json.parse(resultsJson);
+
+                    // Build a wrapper object containing metadata and results
+                    ObjectNode searchWrapper = Json.newObject();
+                    searchWrapper.put("query", query);
+                    searchWrapper.put("category", category);
+                    searchWrapper.put("total_results", newSearchNode.path("total_results").asInt(0));
+                    searchWrapper.set("results", newSearchNode.path("results"));
+
+                    // Generate a unique ID for this search
+                    String searchId = UUID.randomUUID().toString();
+
+                    // Store a full result in a server-side cache
+                    searchCache.put(searchId, searchWrapper);
+
+                    // Get previous search IDs from the session (comma separated)
+                    String oldIds = request.session().get("searchHistory").orElse("");
+                    String updatedIds;
+
+                    if (oldIds.isEmpty()) {
+                        updatedIds = searchId;
+                    } else {
+                        updatedIds = searchId + "," + oldIds;
+                    }
+
+                    // Build ArrayNode to send it to view
+                    ArrayNode historyArray = Json.newArray();
+                    Stream.of(updatedIds.split(","))
+                            .map(searchCache::get)
+                            .forEach(historyArray::add);
+
+                    return ok(views.html.index.render(form, request, messages, historyArray.toString()))
+                            .addingToSession(request, "searchHistory", updatedIds);
+                });
     }
 }
