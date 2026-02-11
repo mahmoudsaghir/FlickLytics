@@ -5,3 +5,7 @@
 #search_form dd.error {
     display: none;
 }
+
+#results a {
+    text-decoration: none;
+}
