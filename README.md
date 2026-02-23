@@ -1,2 +1,2 @@
 SOEN 6441 project
-- try push from local
+- add function to movie and TV details & calculate the related rating criteria

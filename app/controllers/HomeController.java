@@ -124,10 +124,12 @@ public class HomeController extends Controller {
                                 .map(item -> {
                                     ObjectNode filteredItem = Json.newObject();
                                     if (category.equals("movie")) {
+
                                         filteredItem.put("id", item.path("id").asInt(0));
                                         filteredItem.put("title", item.path("title").asText(""));
                                         filteredItem.put("link", "/movie/" + item.path("id").asText(""));
                                         filteredItem.put("language", item.path("original_language").asText(""));
+
                                         // genres is an array of genre IDs, keep as array of ints
                                         filteredItem.set("genre_ids", item.path("genre_ids"));
                                         filteredItem.put("release_date", item.path("release_date").asText(""));
