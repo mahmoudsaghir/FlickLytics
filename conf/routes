@@ -3,8 +3,10 @@
 # ~~~~
 
 # An example controller showing a sample home page
-GET         /flicklytics                     controllers.HomeController.index(request: Request)
-POST        /flicklytics                     controllers.HomeController.search(request: Request)
+GET         /                                                  controllers.HomeController.redirectToFlicklytics
+GET         /flicklytics                                       controllers.HomeController.index(request: Request)
+POST        /flicklytics                                       controllers.HomeController.search(request: Request)
+GET         /flicklytics/global-diversity/:category/:id        controllers.HomeController.globalDiversity(request: Request, category: String, id: Int)
 
 # Map static resources from the /public folder to the /assets URL path
 GET         /flicklytics/assets/*file        controllers.Assets.versioned(path="/public", file: Asset)

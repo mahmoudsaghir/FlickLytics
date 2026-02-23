@@ -1,0 +1,25 @@
+@(category: String, id: Int, mediaName: String, translationDensity: Double, localizationIndex: Double)(implicit request: Http.Request, messages: MessagesProvider)
+
+@main("Global Diversity") {
+
+    <div class="container mt-4">
+        <h2>Global Diversity Analysis</h2>
+
+        <div class="card shadow-sm p-4 mt-3">
+            <p><strong>ID:</strong> @id</p>
+            <p><strong>Name:</strong> @mediaName</p>
+            <p><strong>Category:</strong> @category.capitalize</p>
+
+            <hr>
+
+            <h4>Metrics</h4>
+            <p><strong>Translation Density:</strong> @translationDensity</p>
+            <p><strong>Localization Index:</strong> @localizationIndex</p>
+
+            <button type="button" class="btn btn-primary mt-3" onclick="window.history.back()">
+                Back to Search
+            </button>
+        </div>
+    </div>
+
+}

@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import forms.SearchForm;
+import models.BufferedReaderProcessor;
+import models.Utils;
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
@@ -16,8 +18,7 @@ import play.mvc.Http;
 import play.mvc.Result;
 
 import javax.inject.Inject;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
@@ -44,6 +45,9 @@ public class HomeController extends Controller {
     // cache for search results
     private static final Map<String, JsonNode> searchCache = new ConcurrentHashMap<>();
 
+    private final static String API_URL = "https://api.themoviedb.org/3/";
+    private final static int TARGET_LANGUAGE_CONSTANT = 40; // Approximate number of languages supported by TMDb
+
     @Inject
     public HomeController(FormFactory formFactory, MessagesApi messagesApi,
                           ClassLoaderExecutionContext clExecutionContext, Config config) {
@@ -51,6 +55,16 @@ public class HomeController extends Controller {
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
         this.tmdbToken = config.getString("tmdb.api.key");
+    }
+
+    /**
+     * An action that redirects to the Flicklytics page.
+     *
+     * @return A redirect result to the Flicklytics page
+     * @author Mahmoud Saghir
+     */
+    public Result redirectToFlicklytics() {
+        return redirect("/flicklytics");
     }
 
     /**
@@ -91,7 +105,7 @@ public class HomeController extends Controller {
         // Run API call asynchronously using supplyAsync and ClassLoaderExecutionContext
         return CompletableFuture.supplyAsync(() -> {
                     try {
-                        String searchUrl = "https://api.themoviedb.org/3/search/";
+                        String searchUrl = API_URL + "search/";
                         if (category.equals("movie"))
                             searchUrl += "movie?query=" + query;
                         else if (category.equals("tv"))
@@ -105,20 +119,12 @@ public class HomeController extends Controller {
                         conn.setRequestProperty("Authorization", "Bearer " + this.tmdbToken);
                         conn.setRequestProperty("Accept", "application/json");
 
-                        BufferedReader in = new BufferedReader(
-                                new InputStreamReader(conn.getInputStream())
-                        );
-                        String inputLine;
-                        StringBuilder response = new StringBuilder();
-                        while ((inputLine = in.readLine()) != null) {
-                            response.append(inputLine);
-                        }
-                        in.close();
+                        String response = Utils.processFile(
+                                conn.getInputStream(), BufferedReader::readLine);
 
                         // Parse the raw JSON
-                        JsonNode rootNode = Json.parse(response.toString());
+                        JsonNode rootNode = Json.parse(response);
                         ArrayNode resultsArray = (ArrayNode) rootNode.get("results");
-                        ObjectNode filteredResponse = Json.newObject();
 
                         List<ObjectNode> filteredResultsList = StreamSupport.stream(resultsArray.spliterator(), false)
                                 .map(item -> {
@@ -176,12 +182,12 @@ public class HomeController extends Controller {
                         int totalResults = rootNode.path("total_results").asInt(0);
 
                         // Build the filtered response object
-                        ObjectNode filteredResponseSafe = Json.newObject();
-                        filteredResponseSafe.put("total_results", totalResults);
-                        filteredResponseSafe.set("results", filteredResults);
+                        ObjectNode filteredResponse = Json.newObject();
+                        filteredResponse.put("total_results", totalResults);
+                        filteredResponse.set("results", filteredResults);
 
                         // Return the JSON string for thenApply
-                        return filteredResponseSafe.toString();
+                        return filteredResponse.toString();
                     } catch (Exception e) {
                         e.printStackTrace();
                         return "{\"error\":\"Failed to fetch TMDb data\"}";
@@ -222,6 +228,106 @@ public class HomeController extends Controller {
 
                     return ok(views.html.index.render(form, request, messages, historyArray.toString()))
                             .addingToSession(request, "searchHistory", updatedIds);
+                });
+    }
+
+    /**
+     * An action that renders the Global Diversity page for a given TMDb ID and category.
+     *
+     * @author Mahmoud Saghir
+     * @param category The category (movie, tv)
+     * @param id       The TMDb ID of the movie or TV show
+     * @return A result rendering the Global Diversity page with computed metrics
+     */
+    public CompletionStage<Result> globalDiversity(Http.Request request, String category, Integer id) {
+        Messages messages = messagesApi.preferred(request);
+        return CompletableFuture.supplyAsync(() -> {
+                    try {
+                        // Fetch Details API (Original Overview)
+                        String detailsUrl = API_URL + category + "/" + id;
+
+                        URL detailsEndpoint = new URL(detailsUrl);
+                        HttpURLConnection detailsConn = (HttpURLConnection) detailsEndpoint.openConnection();
+                        detailsConn.setRequestMethod("GET");
+                        detailsConn.setRequestProperty("Authorization", "Bearer " + this.tmdbToken);
+                        detailsConn.setRequestProperty("Accept", "application/json");
+
+                        String detailsResponse = Utils.processFile(
+                                detailsConn.getInputStream(), BufferedReader::readLine);
+
+                        JsonNode detailsRoot = Json.parse(detailsResponse);
+                        String originalOverview = detailsRoot.path("overview").asText("");
+
+                        // 1️⃣ Extract mediaName after originalOverview
+                        String mediaName;
+                        if (category.equals("movie")) {
+                            mediaName = detailsRoot.path("title").asText("");
+                        } else {
+                            mediaName = detailsRoot.path("name").asText("");
+                        }
+
+                        int originalLength = originalOverview.length();
+
+                        // Fetch Translations API
+                        String translationUrl = API_URL + category + "/" + id + "/translations";
+
+                        URL translationEndpoint = new URL(translationUrl);
+                        HttpURLConnection translationConn = (HttpURLConnection) translationEndpoint.openConnection();
+                        translationConn.setRequestMethod("GET");
+                        translationConn.setRequestProperty("Authorization", "Bearer " + this.tmdbToken);
+                        translationConn.setRequestProperty("Accept", "application/json");
+
+                        String translationResponse = Utils.processFile(
+                                translationConn.getInputStream(), BufferedReader::readLine);
+
+                        JsonNode translationRoot = Json.parse(translationResponse.toString());
+                        ArrayNode translationsArray = (ArrayNode) translationRoot.get("translations");
+
+                        // Compute Translation Density
+                        double translationDensity = (double) translationsArray.size() / TARGET_LANGUAGE_CONSTANT;
+
+                        // Compute Localization Index
+                        double localizationIndex = StreamSupport.stream(translationsArray.spliterator(), false)
+                                .map(translationNode -> translationNode.path("data").path("overview").asText(""))
+                                .filter(overview -> !overview.isEmpty())
+                                .mapToDouble(overview -> (double) overview.length() / originalLength)
+                                .average()
+                                .orElse(0.0);
+
+                        // Return Metrics
+                        ObjectNode response = Json.newObject();
+
+                        response.put("translation_density", Math.round(translationDensity * 100.0) / 100.0);
+                        response.put("localization_index", Math.round(localizationIndex * 100.0) / 100.0);
+                        // 4️⃣ Add media_name to response
+                        response.put("media_name", mediaName);
+
+                        return response.toString();
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return "{\"error\":\"Failed to fetch TMDB data\"}";
+                    }
+
+                }, clExecutionContext.current())
+                .thenApply(resultsJson -> {
+                    JsonNode node = Json.parse(resultsJson);
+                    // 3️⃣ Extract mediaName from node
+                    String mediaName = node.path("media_name").asText("");
+
+                    double translationDensity = Math.round(node.path("translation_density").asDouble(0.0) * 100.0) / 100.0;
+                    double localizationIndex = Math.round(node.path("localization_index").asDouble(0.0) * 100.0) / 100.0;
+
+                    // 2️⃣ Pass mediaName to the view
+                    return ok(views.html.globalDiversity.render(
+                            category,
+                            id,
+                            mediaName,
+                            translationDensity,
+                            localizationIndex,
+                            request,
+                            messages
+                    ));
                 });
     }
 }
