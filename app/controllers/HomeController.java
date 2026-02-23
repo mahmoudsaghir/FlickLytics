@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import forms.SearchForm;
-import models.BufferedReaderProcessor;
 import models.Utils;
 import play.data.Form;
 import play.data.FormFactory;
@@ -119,7 +118,7 @@ public class HomeController extends Controller {
                         conn.setRequestProperty("Authorization", "Bearer " + this.tmdbToken);
                         conn.setRequestProperty("Accept", "application/json");
 
-                        String response = Utils.processFile(
+                        String response = Utils.processStream(
                                 conn.getInputStream(), BufferedReader::readLine);
 
                         // Parse the raw JSON
@@ -252,7 +251,7 @@ public class HomeController extends Controller {
                         detailsConn.setRequestProperty("Authorization", "Bearer " + this.tmdbToken);
                         detailsConn.setRequestProperty("Accept", "application/json");
 
-                        String detailsResponse = Utils.processFile(
+                        String detailsResponse = Utils.processStream(
                                 detailsConn.getInputStream(), BufferedReader::readLine);
 
                         JsonNode detailsRoot = Json.parse(detailsResponse);
@@ -277,7 +276,7 @@ public class HomeController extends Controller {
                         translationConn.setRequestProperty("Authorization", "Bearer " + this.tmdbToken);
                         translationConn.setRequestProperty("Accept", "application/json");
 
-                        String translationResponse = Utils.processFile(
+                        String translationResponse = Utils.processStream(
                                 translationConn.getInputStream(), BufferedReader::readLine);
 
                         JsonNode translationRoot = Json.parse(translationResponse.toString());
