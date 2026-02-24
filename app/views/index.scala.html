@@ -80,18 +80,23 @@
                                                         @if(category == "person") {
 
                                                             <a href="@((result \ "photo_link").asOpt[String].getOrElse("#"))"
-                                                               target="_blank"
-                                                               class="float-end ms-3">
-                                                                <img src="@((result \ "photo_link").asOpt[String].getOrElse(""))"
-                                                                     style="width:160px; height:160px; object-fit:cover;"
-                                                                     alt="Photo">
+                                                            target="_blank"
+                                                            class="btn btn-outline-primary btn-sm float-end ms-3">
+                                                                Photo
                                                             </a>
 
-                                                            <h5 class="card-title">
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <h5 class="card-title mb-0">
                                                                 <strong>@((result \ "name").asOpt[String].getOrElse("N/A"))</strong>
-                                                            </h5>
+                                                                    </h5>
 
-                                                            <p class="card-text">
+                                                                    <a href="#"
+                                                                    class="btn btn-outline-dark btn-sm">
+                                                                        Known for
+                                                                    </a>
+                                                            </div>
+
+                                                    <p class="card-text">
                                                                 <strong>ID:</strong> @((result \ "id").asOpt[Int].getOrElse(0))<br>
                                                                 <strong>Popularity:</strong> @((result \ "popularity").asOpt[JsNumber].map(_.value.doubleValue).getOrElse(0.0))<br>
                                                                 <strong>Gender:</strong> @((result \ "gender").asOpt[Int].map {
@@ -114,20 +119,41 @@
                                                                     </a>
                                                                 </h5>
 
-                                                                <a href="@routes.HomeController.globalDiversity(category,
-                                                                    (result \ "id").asOpt[Int].getOrElse(0))"
-                                                                class="btn btn-outline-primary btn-sm">
-                                                                    Global Diversity
-                                                                </a>
+                                                                <div class="d-flex gap-2">
+                                                                    <a href="@routes.HomeController.globalDiversity(category,
+                                                                       (result \ "id").asOpt[Int].getOrElse(0))"
+                                                                       class="btn btn-outline-primary btn-sm">
+                                                                        Global Diversity
+                                                                    </a>
+
+                                                                    <a href=""
+                                                                       class="btn btn-outline-secondary btn-sm">
+                                                                        Reviews
+                                                                    </a>
+
+                                                                    <a href=""
+                                                                       class="btn btn-outline-success btn-sm">
+                                                                        Financial Performance
+                                                                    </a>
+                                                                </div>
                                                             </div>
 
                                                             <p class="card-text">
                                                                 <strong>ID:</strong> @((result \ "id").asOpt[Int].getOrElse(0))<br>
                                                                 <strong>Language:</strong> @((result \ "language").asOpt[String].getOrElse("N/A"))<br>
-                                                                <strong>Genres:</strong> @((result \ "genre_ids").asOpt[JsArray].map(_.value.map(_.as[Int]).mkString(", ")).getOrElse("N/A"))<br>
-                                                                <strong>Release Date:</strong> @((result \ "release_date").asOpt[String]
-                                                                    .orElse((result \ "first_air_date").asOpt[String])
-                                                                    .getOrElse("N/A"))<br>
+                                                                <strong>Genres:</strong> @{
+                                                                    (result \ "genres").asOpt[JsArray]
+                                                                        .filter(_.value.nonEmpty)
+                                                                        .map(_.value.map(_.as[String]).mkString(", "))
+                                                                        .getOrElse("N/A")
+                                                                }<br>
+
+                                                                <strong>Release Date:</strong> @{
+                                                                    (result \ "release_date").asOpt[String]
+                                                                        .filter(_.nonEmpty)
+                                                                        .orElse((result \ "first_air_date").asOpt[String].filter(_.nonEmpty))
+                                                                        .getOrElse("N/A")
+                                                                }<br>
                                                                 <strong>Popularity:</strong> @((result \ "popularity").asOpt[JsNumber].map(_.value.doubleValue).getOrElse(0.0))<br>
                                                                 <strong>Vote Average:</strong> @((result \ "vote_average").asOpt[JsNumber].map(_.value.doubleValue).getOrElse(0.0))
                                                             </p>
