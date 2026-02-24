@@ -17,7 +17,7 @@ import play.mvc.Http;
 import play.mvc.Result;
 
 import javax.inject.Inject;
-import java.io.*;
+import java.io.BufferedReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
@@ -40,12 +40,15 @@ public class HomeController extends Controller {
     private final MessagesApi messagesApi;
     private final ClassLoaderExecutionContext clExecutionContext;
     private final String tmdbToken;
+    private final String apiUrl;
+    private final int targetLanguageConstant;
 
     // cache for search results
     private static final Map<String, JsonNode> searchCache = new ConcurrentHashMap<>();
 
-    private final static String API_URL = "https://api.themoviedb.org/3/";
-    private final static int TARGET_LANGUAGE_CONSTANT = 40; // Approximate number of languages supported by TMDb
+    // caches for genres to avoid repeated API calls
+    private final Map<Integer, String> movieGenres = new ConcurrentHashMap<>();
+    private final Map<Integer, String> tvGenres = new ConcurrentHashMap<>();
 
     @Inject
     public HomeController(FormFactory formFactory, MessagesApi messagesApi,
@@ -54,6 +57,11 @@ public class HomeController extends Controller {
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
         this.tmdbToken = config.getString("tmdb.api.key");
+        this.apiUrl = config.getString("tmdb.api.url");
+        this.targetLanguageConstant = config.getInt("target_language_constant");
+
+        // load genres at startup to populate the genre maps
+        loadGenres();
     }
 
     /**
@@ -104,7 +112,7 @@ public class HomeController extends Controller {
         // Run API call asynchronously using supplyAsync and ClassLoaderExecutionContext
         return CompletableFuture.supplyAsync(() -> {
                     try {
-                        String searchUrl = API_URL + "search/";
+                        String searchUrl = this.apiUrl + "search/";
                         if (category.equals("movie"))
                             searchUrl += "movie?query=" + query;
                         else if (category.equals("tv"))
@@ -135,8 +143,14 @@ public class HomeController extends Controller {
                                         filteredItem.put("link", "/movie/" + item.path("id").asText(""));
                                         filteredItem.put("language", item.path("original_language").asText(""));
 
-                                        // genres is an array of genre IDs, keep as array of ints
-                                        filteredItem.set("genre_ids", item.path("genre_ids"));
+                                        // convert genre IDs to genre names using cached movieGenres map
+                                        ArrayNode genreNames = Json.newArray();
+                                        for (JsonNode genreIdNode : item.path("genre_ids")) {
+                                            int genreId = genreIdNode.asInt();
+                                            String genreName = movieGenres.getOrDefault(genreId, "Unknown");
+                                            genreNames.add(genreName);
+                                        }
+                                        filteredItem.set("genres", genreNames);
                                         filteredItem.put("release_date", item.path("release_date").asText(""));
                                         filteredItem.put("popularity", item.path("popularity").asDouble(0.0));
                                         filteredItem.put("vote_average", item.path("vote_average").asDouble(0.0));
@@ -145,7 +159,14 @@ public class HomeController extends Controller {
                                         filteredItem.put("name", item.path("name").asText(""));
                                         filteredItem.put("link", "/tv/" + item.path("id").asText(""));
                                         filteredItem.put("language", item.path("original_language").asText(""));
-                                        filteredItem.set("genre_ids", item.path("genre_ids"));
+                                        // convert genre IDs to genre names using cached tvGenres map
+                                        ArrayNode genreNames = Json.newArray();
+                                        for (JsonNode genreIdNode : item.path("genre_ids")) {
+                                            int genreId = genreIdNode.asInt();
+                                            String genreName = tvGenres.getOrDefault(genreId, "Unknown");
+                                            genreNames.add(genreName);
+                                        }
+                                        filteredItem.set("genres", genreNames);
                                         filteredItem.put("first_air_date", item.path("first_air_date").asText(""));
                                         filteredItem.put("popularity", item.path("popularity").asDouble(0.0));
                                         filteredItem.put("vote_average", item.path("vote_average").asDouble(0.0));
@@ -233,17 +254,17 @@ public class HomeController extends Controller {
     /**
      * An action that renders the Global Diversity page for a given TMDb ID and category.
      *
-     * @author Mahmoud Saghir
      * @param category The category (movie, tv)
      * @param id       The TMDb ID of the movie or TV show
      * @return A result rendering the Global Diversity page with computed metrics
+     * @author Mahmoud Saghir
      */
     public CompletionStage<Result> globalDiversity(Http.Request request, String category, Integer id) {
         Messages messages = messagesApi.preferred(request);
         return CompletableFuture.supplyAsync(() -> {
                     try {
                         // Fetch Details API (Original Overview)
-                        String detailsUrl = API_URL + category + "/" + id;
+                        String detailsUrl = this.apiUrl + category + "/" + id;
 
                         URL detailsEndpoint = new URL(detailsUrl);
                         HttpURLConnection detailsConn = (HttpURLConnection) detailsEndpoint.openConnection();
@@ -268,7 +289,7 @@ public class HomeController extends Controller {
                         int originalLength = originalOverview.length();
 
                         // Fetch Translations API
-                        String translationUrl = API_URL + category + "/" + id + "/translations";
+                        String translationUrl = this.apiUrl + category + "/" + id + "/translations";
 
                         URL translationEndpoint = new URL(translationUrl);
                         HttpURLConnection translationConn = (HttpURLConnection) translationEndpoint.openConnection();
@@ -283,7 +304,7 @@ public class HomeController extends Controller {
                         ArrayNode translationsArray = (ArrayNode) translationRoot.get("translations");
 
                         // Compute Translation Density
-                        double translationDensity = (double) translationsArray.size() / TARGET_LANGUAGE_CONSTANT;
+                        double translationDensity = (double) translationsArray.size() / this.targetLanguageConstant;
 
                         // Compute Localization Index
                         double localizationIndex = StreamSupport.stream(translationsArray.spliterator(), false)
@@ -327,6 +348,47 @@ public class HomeController extends Controller {
                             request,
                             messages
                     ));
+                });
+    }
+
+    /**
+     * Loads genres for movies and TV shows from TMDb API and populates the genre maps.
+     * @author Mahmoud Saghir
+     */
+    private void loadGenres() {
+        try {
+            loadGenreCategory("movie", movieGenres);
+            loadGenreCategory("tv", tvGenres);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * @param category The category of genres to load (e.g., "movie" or "tv")
+     * @param genreMap The map to populate with genre ID and name pairs
+     * @throws Exception if there is an error during the API call or processing the response
+     * @author Mahmoud Saghir
+     */
+    private void loadGenreCategory(String category, Map<Integer, String> genreMap) throws Exception {
+        String genreUrl = this.apiUrl + "genre/" + category + "/list";
+
+        URL url = new URL(genreUrl);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Authorization", "Bearer " + this.tmdbToken);
+        conn.setRequestProperty("Accept", "application/json");
+
+        String response = Utils.processStream(conn.getInputStream(), BufferedReader::readLine);
+
+        JsonNode root = Json.parse(response);
+        ArrayNode genresArray = (ArrayNode) root.get("genres");
+
+        StreamSupport.stream(genresArray.spliterator(), false)
+                .forEach(node -> {
+                    int id = node.path("id").asInt();
+                    String name = node.path("name").asText();
+                    genreMap.put(id, name);
                 });
     }
 }
