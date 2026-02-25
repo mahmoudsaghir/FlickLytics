@@ -8,6 +8,8 @@ import forms.SearchForm;
 import models.Utils;
 import play.data.Form;
 import play.data.FormFactory;
+import play.filters.csrf.AddCSRFToken;
+import play.filters.csrf.RequireCSRFCheck;
 import play.i18n.Messages;
 import play.i18n.MessagesApi;
 import play.libs.Json;

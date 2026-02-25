@@ -5,6 +5,7 @@
 # An example controller showing a sample home page
 GET         /                                                  controllers.HomeController.redirectToFlicklytics
 GET         /flicklytics                                       controllers.HomeController.index(request: Request)
++ nocsrf
 POST        /flicklytics                                       controllers.HomeController.search(request: Request)
 GET         /flicklytics/global-diversity/:category/:id        controllers.HomeController.globalDiversity(request: Request, category: String, id: Int)
 
