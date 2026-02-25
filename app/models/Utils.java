@@ -6,6 +6,7 @@ import play.libs.Json;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 
 /**
@@ -23,7 +24,8 @@ public class Utils {
      * @author Mahmoud Saghir
      */
     public static JsonNode sendGetRequest(String urlStr, String token) throws Exception {
-        URL url = new URL(urlStr);
+        URI uri = URI.create(urlStr);
+        URL url = uri.toURL();
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
 
