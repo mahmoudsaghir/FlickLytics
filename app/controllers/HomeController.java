@@ -17,6 +17,10 @@ import play.mvc.Http;
 import play.mvc.Result;
 
 import javax.inject.Inject;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -376,4 +380,159 @@ public class HomeController extends Controller {
         // Fallback value to avoid division by zero
         return 1;
     }
+
+    /**
+     * An action that renders the Global Diversity page for a given TMDb ID and category.
+     *  The detail of (movie, tv) readability
+     *
+     * @author Zenghui WU
+     */
+    public CompletionStage<Result> movie(Long id, Http.Request request) {
+        return fetchAndRender("movie", id, request);
+    }
+
+    public CompletionStage<Result> tv(Long id, Http.Request request) {
+        return fetchAndRender("tv", id, request);
+    }
+    private CompletionStage<Result> fetchAndRender(String type, Long id, Http.Request request) {
+        Messages messages = messagesApi.preferred(request);
+
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String urlStr = "https://api.themoviedb.org/3/" + type + "/" + id + "?language=en-US";
+                HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Authorization", "Bearer " + tmdbToken);
+                conn.setRequestProperty("Accept", "application/json");
+
+                int code = conn.getResponseCode();
+                BufferedReader in = new BufferedReader(new InputStreamReader(
+                        code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream()
+                ));
+
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = in.readLine()) != null) sb.append(line);
+                in.close();
+
+                if (code < 200 || code >= 300) {
+                    return Json.newObject().put("error", "TMDb error " + code).put("body", sb.toString());
+                }
+                return Json.parse(sb.toString());
+
+            } catch (Exception e) {
+                return Json.newObject().put("error", "Failed to fetch details");
+            }
+        }, clExecutionContext.current()).thenApply(details -> {
+            if (details.has("error")) {
+                return internalServerError(details.toString());
+            }
+
+            String overview = details.path("overview").asText("");
+            HomeController.ReadabilityScores scores = HomeController.Readability.compute(overview);
+
+            return ok(views.html.details.render(type, details, overview, scores, request, messages));
+        });
+
+    }
+
+    // --- Readability helper types ---
+    public static class ReadabilityScores {
+        public final double fleschReadingEase;
+        public final double fleschKincaidGrade;
+        public final int sentences;
+        public final int words;
+        public final int syllables;
+
+        public ReadabilityScores(double fre, double fkg, int s, int w, int sy) {
+            this.fleschReadingEase = fre;
+            this.fleschKincaidGrade = fkg;
+            this.sentences = s;
+            this.words = w;
+            this.syllables = sy;
+        }
+    }
+
+    public static class Readability {
+
+        public static HomeController.ReadabilityScores compute(String text) {
+            if (text == null) text = "";
+            String cleaned = text.trim();
+            if (cleaned.isEmpty()) {
+                return new HomeController.ReadabilityScores(0.0, 0.0, 0, 0, 0);
+            }
+
+            int sentences = countSentences(cleaned);
+            int words = countWords(cleaned);
+            int syllables = countSyllables(cleaned);
+
+            // avoid divide-by-zero
+            sentences = Math.max(sentences, 1);
+            words = Math.max(words, 1);
+
+            /* Flesch Reading Ease
+             *  FRE= 206-1.015*(total words/total sentences) - 84.6*(total syllables/total words)
+             */
+            double fre = 206.835
+                    - 1.015 * ((double) words / sentences)
+                    - 84.6 * ((double) syllables / words);
+
+            /* Flesch-Kincaid Grade Level:
+            Grade level = 0.39*(total words/ total sentences)+ 11.8*(Total syllables/total words) - 15.59;
+            */
+            double fkg = 0.39 * ((double) words / sentences)
+                    + 11.8 * ((double) syllables / words)
+                    - 15.59;
+
+            return new HomeController.ReadabilityScores(round2(fre), round2(fkg), sentences, words, syllables);
+        }
+
+        private static int countSentences(String t) {
+            // simple sentence split: ., !, ?
+            String[] parts = t.split("[.!?]+");
+            int count = 0;
+            for (String p : parts) if (!p.trim().isEmpty()) count++;
+            return Math.max(count, 1);
+        }
+
+        private static int countWords(String t) {
+            String[] parts = t.trim().split("\\s+");
+            int count = 0;
+            for (String p : parts) if (!p.trim().isEmpty()) count++;
+            return count;
+        }
+
+        // heuristic syllable counter (good enough for assignment)
+        private static int countSyllables(String t) {
+            String[] words = t.toLowerCase().replaceAll("[^a-z\\s]", " ").split("\\s+");
+            int total = 0;
+            for (String w : words) {
+                if (w.isEmpty()) continue;
+                total += syllablesInWord(w);
+            }
+            return total;
+        }
+
+        private static int syllablesInWord(String w) {
+            // remove trailing 'e'
+            w = w.replaceAll("e$", "");
+            // count vowel groups
+            int count = 0;
+            boolean prevVowel = false;
+            for (char c : w.toCharArray()) {
+                boolean vowel = "aeiouy".indexOf(c) >= 0;
+                if (vowel && !prevVowel) count++;
+                prevVowel = vowel;
+            }
+            return Math.max(count, 1);
+        }
+
+        private static double round2(double x) {
+            return Math.round(x * 100.0) / 100.0;
+        }
+    }
+    /*
+     * this is the end of movie and TV detail and Readability (a)
+     *
+     * */
 }
