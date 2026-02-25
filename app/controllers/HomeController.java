@@ -8,8 +8,6 @@ import forms.SearchForm;
 import models.Utils;
 import play.data.Form;
 import play.data.FormFactory;
-import play.filters.csrf.AddCSRFToken;
-import play.filters.csrf.RequireCSRFCheck;
 import play.i18n.Messages;
 import play.i18n.MessagesApi;
 import play.libs.Json;
@@ -355,6 +353,7 @@ public class HomeController extends Controller {
 
     /**
      * Loads genres for movies and TV shows from TMDb API and populates the genre maps.
+     *
      * @author Mahmoud Saghir
      */
     private void loadGenres() {
