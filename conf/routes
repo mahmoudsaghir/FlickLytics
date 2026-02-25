@@ -13,5 +13,5 @@ GET         /flicklytics/global-diversity/:category/:id        controllers.HomeC
 GET         /flicklytics/assets/*file        controllers.Assets.versioned(path="/public", file: Asset)
 
 # Map details for checking items under /flicklytics
-GET   /flicklytics/movie/:id   controllers.DetailsController.movie(id: Long, request: Request)
-GET   /flicklytics/tv/:id      controllers.DetailsController.tv(id: Long, request: Request)
+GET   /flicklytics/movie/:id   controllers.HomeController.movie(id: Long, request: Request)
+GET   /flicklytics/tv/:id      controllers.HomeController.tv(id: Long, request: Request)
