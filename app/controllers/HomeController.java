@@ -58,10 +58,11 @@ public class HomeController extends Controller {
         this.clExecutionContext = clExecutionContext;
         this.tmdbToken = config.getString("tmdb.api.key");
         this.apiUrl = config.getString("tmdb.api.url");
-        this.targetLanguageConstant = config.getInt("target_language_constant");
 
         // load genres at startup to populate the genre maps
         loadGenres();
+        // load the target language constant at startup
+        this.targetLanguageConstant = loadTargetLanguageConstant();
     }
 
     /**
@@ -120,17 +121,8 @@ public class HomeController extends Controller {
                         else if (category.equals("person"))
                             searchUrl += "person?query=" + query;
 
-                        URL url = new URL(searchUrl);
-                        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                        conn.setRequestMethod("GET");
-                        conn.setRequestProperty("Authorization", "Bearer " + this.tmdbToken);
-                        conn.setRequestProperty("Accept", "application/json");
+                        JsonNode rootNode = Utils.sendGetRequest(searchUrl, this.tmdbToken);
 
-                        String response = Utils.processStream(
-                                conn.getInputStream(), BufferedReader::readLine);
-
-                        // Parse the raw JSON
-                        JsonNode rootNode = Json.parse(response);
                         ArrayNode resultsArray = (ArrayNode) rootNode.get("results");
 
                         List<ObjectNode> filteredResultsList = StreamSupport.stream(resultsArray.spliterator(), false)
@@ -265,20 +257,11 @@ public class HomeController extends Controller {
                     try {
                         // Fetch Details API (Original Overview)
                         String detailsUrl = this.apiUrl + category + "/" + id;
+                        JsonNode detailsRoot = Utils.sendGetRequest(detailsUrl, this.tmdbToken);
 
-                        URL detailsEndpoint = new URL(detailsUrl);
-                        HttpURLConnection detailsConn = (HttpURLConnection) detailsEndpoint.openConnection();
-                        detailsConn.setRequestMethod("GET");
-                        detailsConn.setRequestProperty("Authorization", "Bearer " + this.tmdbToken);
-                        detailsConn.setRequestProperty("Accept", "application/json");
-
-                        String detailsResponse = Utils.processStream(
-                                detailsConn.getInputStream(), BufferedReader::readLine);
-
-                        JsonNode detailsRoot = Json.parse(detailsResponse);
                         String originalOverview = detailsRoot.path("overview").asText("");
 
-                        // 1️⃣ Extract mediaName after originalOverview
+                        // Extract mediaName after originalOverview
                         String mediaName;
                         if (category.equals("movie")) {
                             mediaName = detailsRoot.path("title").asText("");
@@ -290,17 +273,8 @@ public class HomeController extends Controller {
 
                         // Fetch Translations API
                         String translationUrl = this.apiUrl + category + "/" + id + "/translations";
+                        JsonNode translationRoot = Utils.sendGetRequest(translationUrl, this.tmdbToken);
 
-                        URL translationEndpoint = new URL(translationUrl);
-                        HttpURLConnection translationConn = (HttpURLConnection) translationEndpoint.openConnection();
-                        translationConn.setRequestMethod("GET");
-                        translationConn.setRequestProperty("Authorization", "Bearer " + this.tmdbToken);
-                        translationConn.setRequestProperty("Accept", "application/json");
-
-                        String translationResponse = Utils.processStream(
-                                translationConn.getInputStream(), BufferedReader::readLine);
-
-                        JsonNode translationRoot = Json.parse(translationResponse.toString());
                         ArrayNode translationsArray = (ArrayNode) translationRoot.get("translations");
 
                         // Compute Translation Density
@@ -319,7 +293,7 @@ public class HomeController extends Controller {
 
                         response.put("translation_density", Math.round(translationDensity * 100.0) / 100.0);
                         response.put("localization_index", Math.round(localizationIndex * 100.0) / 100.0);
-                        // 4️⃣ Add media_name to response
+                        // Add media_name to response
                         response.put("media_name", mediaName);
 
                         return response.toString();
@@ -332,13 +306,13 @@ public class HomeController extends Controller {
                 }, clExecutionContext.current())
                 .thenApply(resultsJson -> {
                     JsonNode node = Json.parse(resultsJson);
-                    // 3️⃣ Extract mediaName from node
+                    // Extract mediaName from node
                     String mediaName = node.path("media_name").asText("");
 
                     double translationDensity = Math.round(node.path("translation_density").asDouble(0.0) * 100.0) / 100.0;
                     double localizationIndex = Math.round(node.path("localization_index").asDouble(0.0) * 100.0) / 100.0;
 
-                    // 2️⃣ Pass mediaName to the view
+                    // Pass mediaName to the view
                     return ok(views.html.globalDiversity.render(
                             category,
                             id,
@@ -373,16 +347,8 @@ public class HomeController extends Controller {
      */
     private void loadGenreCategory(String category, Map<Integer, String> genreMap) throws Exception {
         String genreUrl = this.apiUrl + "genre/" + category + "/list";
+        JsonNode root = Utils.sendGetRequest(genreUrl, this.tmdbToken);
 
-        URL url = new URL(genreUrl);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("Authorization", "Bearer " + this.tmdbToken);
-        conn.setRequestProperty("Accept", "application/json");
-
-        String response = Utils.processStream(conn.getInputStream(), BufferedReader::readLine);
-
-        JsonNode root = Json.parse(response);
         ArrayNode genresArray = (ArrayNode) root.get("genres");
 
         StreamSupport.stream(genresArray.spliterator(), false)
@@ -391,5 +357,28 @@ public class HomeController extends Controller {
                     String name = node.path("name").asText();
                     genreMap.put(id, name);
                 });
+    }
+
+    /**
+     * Loads the number of translations from TMDB collection translations API.
+     *
+     * @return number of translations (size of translations list)
+     * @author Mahmoud Saghir
+     */
+    private int loadTargetLanguageConstant() {
+        try {
+            String urlStr = this.apiUrl + "collection/10/translations";
+            JsonNode root = Utils.sendGetRequest(urlStr, this.tmdbToken);
+            JsonNode translations = root.path("translations");
+
+            if (translations.isArray()) {
+                return translations.size();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Fallback value to avoid division by zero
+        return 1;
     }
 }
