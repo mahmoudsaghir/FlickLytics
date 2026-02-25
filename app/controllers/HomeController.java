@@ -17,16 +17,12 @@ import play.mvc.Http;
 import play.mvc.Result;
 
 import javax.inject.Inject;
-import java.io.BufferedReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -114,12 +110,11 @@ public class HomeController extends Controller {
         return CompletableFuture.supplyAsync(() -> {
                     try {
                         String searchUrl = this.apiUrl + "search/";
-                        if (category.equals("movie"))
-                            searchUrl += "movie?query=" + query;
-                        else if (category.equals("tv"))
-                            searchUrl += "tv?query=" + query;
-                        else if (category.equals("person"))
-                            searchUrl += "person?query=" + query;
+                        switch (category) {
+                            case "movie" -> searchUrl += "movie?query=" + query;
+                            case "tv" -> searchUrl += "tv?query=" + query;
+                            case "person" -> searchUrl += "person?query=" + query;
+                        }
 
                         JsonNode rootNode = Utils.sendGetRequest(searchUrl, this.tmdbToken);
 
@@ -185,10 +180,10 @@ public class HomeController extends Controller {
                                     return filteredItem;
                                 })
                                 .limit(10)
-                                .collect(Collectors.toList());
+                                .toList();
 
                         ArrayNode filteredResults = Json.newArray();
-                        filteredResultsList.stream().forEach(filteredResults::add);
+                        filteredResultsList.forEach(filteredResults::add);
 
                         // Use the original total_results from TMDb
                         int totalResults = rootNode.path("total_results").asInt(0);
@@ -362,7 +357,7 @@ public class HomeController extends Controller {
     /**
      * Loads the number of translations from TMDB collection translations API.
      *
-     * @return number of translations (size of translations list)
+     * @return number of translations (size of a translation list)
      * @author Mahmoud Saghir
      */
     private int loadTargetLanguageConstant() {
