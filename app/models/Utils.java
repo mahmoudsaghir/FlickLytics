@@ -24,7 +24,7 @@ public class Utils {
      * @author Mahmoud Saghir
      */
     public static JsonNode sendGetRequest(String urlStr, String token) throws Exception {
-        URI uri = URI.create(urlStr);
+        URI uri = new URI(urlStr.replace(" ", "%20"));
         URL url = uri.toURL();
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");

@@ -21,6 +21,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -229,6 +230,12 @@ public class HomeController extends Controller {
                         updatedIds = searchId;
                     } else {
                         updatedIds = searchId + "," + oldIds;
+                    }
+
+                    // Keep at most 10 search queries in history
+                    String[] ids = updatedIds.split(",");
+                    if (ids.length > 10) {
+                        updatedIds = String.join(",", Arrays.copyOf(ids, 10));
                     }
 
                     // Build ArrayNode to send it to view
