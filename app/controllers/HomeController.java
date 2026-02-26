@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import forms.SearchForm;
+import models.GlobalDiversityResult;
 import models.Utils;
 import play.data.Form;
 import play.data.FormFactory;
@@ -15,6 +16,7 @@ import play.libs.concurrent.ClassLoaderExecutionContext;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
+import services.GlobalDiversityService;
 
 import javax.inject.Inject;
 import java.io.BufferedReader;
@@ -51,14 +53,18 @@ public class HomeController extends Controller {
     private final Map<Integer, String> movieGenres = new ConcurrentHashMap<>();
     private final Map<Integer, String> tvGenres = new ConcurrentHashMap<>();
 
+    private final GlobalDiversityService globalDiversityService;
+
     @Inject
     public HomeController(FormFactory formFactory, MessagesApi messagesApi,
-                          ClassLoaderExecutionContext clExecutionContext, Config config) {
+                          ClassLoaderExecutionContext clExecutionContext, Config config,
+                          GlobalDiversityService globalDiversityService) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
         this.tmdbToken = config.getString("tmdb.api.key");
         this.apiUrl = config.getString("tmdb.api.url");
+        this.globalDiversityService = globalDiversityService;
 
         // load genres at startup to populate the genre maps
         loadGenres();
@@ -265,66 +271,31 @@ public class HomeController extends Controller {
                         String detailsUrl = this.apiUrl + category + "/" + id;
                         JsonNode detailsRoot = Utils.sendGetRequest(detailsUrl, this.tmdbToken);
 
-                        String originalOverview = detailsRoot.path("overview").asText("");
-
-                        // Extract mediaName after originalOverview
-                        String mediaName;
-                        if (category.equals("movie")) {
-                            mediaName = detailsRoot.path("title").asText("");
-                        } else {
-                            mediaName = detailsRoot.path("name").asText("");
-                        }
-
-                        int originalLength = originalOverview.length();
-
                         // Fetch Translations API
                         String translationUrl = this.apiUrl + category + "/" + id + "/translations";
                         JsonNode translationRoot = Utils.sendGetRequest(translationUrl, this.tmdbToken);
 
-                        ArrayNode translationsArray = (ArrayNode) translationRoot.get("translations");
-
-                        // Compute Translation Density
-                        double translationDensity = (double) translationsArray.size() / this.targetLanguageConstant;
-
-                        // Compute Localization Index
-                        double localizationIndex = StreamSupport.stream(translationsArray.spliterator(), false)
-                                .map(translationNode -> translationNode.path("data").path("overview").asText(""))
-                                .filter(overview -> !overview.isEmpty())
-                                .mapToDouble(overview -> (double) overview.length() / originalLength)
-                                .average()
-                                .orElse(0.0);
-
-                        // Return Metrics
-                        ObjectNode response = Json.newObject();
-
-                        response.put("translation_density", Math.round(translationDensity * 100.0) / 100.0);
-                        response.put("localization_index", Math.round(localizationIndex * 100.0) / 100.0);
-                        // Add media_name to response
-                        response.put("media_name", mediaName);
-
-                        return response.toString();
-
+                        return globalDiversityService.compute(
+                                category,
+                                detailsRoot,
+                                translationRoot,
+                                this.targetLanguageConstant
+                        );
                     } catch (Exception e) {
                         e.printStackTrace();
                         return "{\"error\":\"Failed to fetch TMDB data\"}";
                     }
 
                 }, clExecutionContext.current())
-                .thenApply(resultsJson -> {
-                    JsonNode node = Json.parse(resultsJson);
-                    // Extract mediaName from node
-                    String mediaName = node.path("media_name").asText("");
+                .thenApply(result -> {
+                    GlobalDiversityResult globalDiversityResult = (GlobalDiversityResult) result;
 
-                    double translationDensity = Math.round(node.path("translation_density").asDouble(0.0) * 100.0) / 100.0;
-                    double localizationIndex = Math.round(node.path("localization_index").asDouble(0.0) * 100.0) / 100.0;
-
-                    // Pass mediaName to the view
                     return ok(views.html.globalDiversity.render(
                             category,
                             id,
-                            mediaName,
-                            translationDensity,
-                            localizationIndex,
+                            globalDiversityResult.mediaName,
+                            globalDiversityResult.translationDensity,
+                            globalDiversityResult.localizationIndex,
                             request,
                             messages
                     ));
