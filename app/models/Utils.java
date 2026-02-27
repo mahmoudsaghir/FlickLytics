@@ -48,4 +48,13 @@ public class Utils {
             return Json.parse(builder.toString());
         }
     }
+
+    /**
+     * Rounds a double to two decimal places
+     * @param x double to round
+     * @return double rounded to two decimal places
+     */
+    public static double round2(double x) {
+        return Math.round(x * 100.0) / 100.0;
+    }
 }

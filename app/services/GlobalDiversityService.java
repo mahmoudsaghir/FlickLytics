@@ -3,6 +3,7 @@ package services;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import models.GlobalDiversityResult;
+import models.Utils;
 
 import java.util.stream.StreamSupport;
 
@@ -50,13 +51,9 @@ public class GlobalDiversityService {
                         .orElse(0.0);
 
         return new GlobalDiversityResult(
-                round2(translationDensity),
-                round2(localizationIndex),
+                Utils.round2(translationDensity),
+                Utils.round2(localizationIndex),
                 mediaName
         );
-    }
-
-    private double round2(double x) {
-        return Math.round(x * 100.0) / 100.0;
     }
 }

@@ -16,7 +16,10 @@ import play.libs.concurrent.ClassLoaderExecutionContext;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
+import services.ConfigService;
+import services.GenreService;
 import services.GlobalDiversityService;
+import services.TmdbService;
 
 import javax.inject.Inject;
 import java.io.BufferedReader;
@@ -54,22 +57,30 @@ public class HomeController extends Controller {
     private final Map<Integer, String> tvGenres = new ConcurrentHashMap<>();
 
     private final GlobalDiversityService globalDiversityService;
+    private final TmdbService tmdbService;
 
     @Inject
     public HomeController(FormFactory formFactory, MessagesApi messagesApi,
                           ClassLoaderExecutionContext clExecutionContext, Config config,
-                          GlobalDiversityService globalDiversityService) {
+                          GlobalDiversityService globalDiversityService, GenreService genreService,
+                          ConfigService configService, TmdbService tmdbService) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
         this.tmdbToken = config.getString("tmdb.api.key");
         this.apiUrl = config.getString("tmdb.api.url");
         this.globalDiversityService = globalDiversityService;
+        this.tmdbService = tmdbService;
 
         // load genres at startup to populate the genre maps
-        loadGenres();
+        try {
+            genreService.loadGenres(this.apiUrl, this.tmdbToken, movieGenres, tvGenres);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         // load the target language constant at startup
-        this.targetLanguageConstant = loadTargetLanguageConstant();
+        this.targetLanguageConstant = configService.loadTargetLanguageConstant(this.apiUrl, this.tmdbToken);
+//        this.targetLanguageConstant = loadTargetLanguageConstant();
     }
 
     /**
@@ -120,14 +131,15 @@ public class HomeController extends Controller {
         // Run API call asynchronously using supplyAsync and ClassLoaderExecutionContext
         return CompletableFuture.supplyAsync(() -> {
                     try {
-                        String searchUrl = this.apiUrl + "search/";
-                        switch (category) {
-                            case "movie" -> searchUrl += "movie?query=" + query;
-                            case "tv" -> searchUrl += "tv?query=" + query;
-                            case "person" -> searchUrl += "person?query=" + query;
-                        }
-
-                        JsonNode rootNode = Utils.sendGetRequest(searchUrl, this.tmdbToken);
+//                        String searchUrl = this.apiUrl + "search/";
+//                        switch (category) {
+//                            case "movie" -> searchUrl += "movie?query=" + query;
+//                            case "tv" -> searchUrl += "tv?query=" + query;
+//                            case "person" -> searchUrl += "person?query=" + query;
+//                        }
+//
+//                        JsonNode rootNode = Utils.sendGetRequest(searchUrl, this.tmdbToken);
+                        JsonNode rootNode = tmdbService.search(query, category);
 
                         ArrayNode resultsArray = (ArrayNode) rootNode.get("results");
 
@@ -268,12 +280,15 @@ public class HomeController extends Controller {
         return CompletableFuture.supplyAsync(() -> {
                     try {
                         // Fetch Details API (Original Overview)
-                        String detailsUrl = this.apiUrl + category + "/" + id;
-                        JsonNode detailsRoot = Utils.sendGetRequest(detailsUrl, this.tmdbToken);
+//                        String detailsUrl = this.apiUrl + category + "/" + id;
+//                        JsonNode detailsRoot = Utils.sendGetRequest(detailsUrl, this.tmdbToken);
 
                         // Fetch Translations API
-                        String translationUrl = this.apiUrl + category + "/" + id + "/translations";
-                        JsonNode translationRoot = Utils.sendGetRequest(translationUrl, this.tmdbToken);
+//                        String translationUrl = this.apiUrl + category + "/" + id + "/translations";
+//                        JsonNode translationRoot = Utils.sendGetRequest(translationUrl, this.tmdbToken);
+
+                        JsonNode detailsRoot = tmdbService.getDetails(category, id.longValue());
+                        JsonNode translationRoot = tmdbService.getTranslations(category, id.longValue());
 
                         return globalDiversityService.compute(
                                 category,
@@ -300,63 +315,6 @@ public class HomeController extends Controller {
                             messages
                     ));
                 });
-    }
-
-    /**
-     * Loads genres for movies and TV shows from TMDb API and populates the genre maps.
-     *
-     * @author Mahmoud Saghir
-     */
-    private void loadGenres() {
-        try {
-            loadGenreCategory("movie", movieGenres);
-            loadGenreCategory("tv", tvGenres);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * @param category The category of genres to load (e.g., "movie" or "tv")
-     * @param genreMap The map to populate with genre ID and name pairs
-     * @throws Exception if there is an error during the API call or processing the response
-     * @author Mahmoud Saghir
-     */
-    private void loadGenreCategory(String category, Map<Integer, String> genreMap) throws Exception {
-        String genreUrl = this.apiUrl + "genre/" + category + "/list";
-        JsonNode root = Utils.sendGetRequest(genreUrl, this.tmdbToken);
-
-        ArrayNode genresArray = (ArrayNode) root.get("genres");
-
-        StreamSupport.stream(genresArray.spliterator(), false)
-                .forEach(node -> {
-                    int id = node.path("id").asInt();
-                    String name = node.path("name").asText();
-                    genreMap.put(id, name);
-                });
-    }
-
-    /**
-     * Loads the number of translations from TMDB collection translations API.
-     *
-     * @return number of translations (size of a translation list)
-     * @author Mahmoud Saghir
-     */
-    private int loadTargetLanguageConstant() {
-        try {
-            String urlStr = this.apiUrl + "collection/10/translations";
-            JsonNode root = Utils.sendGetRequest(urlStr, this.tmdbToken);
-            JsonNode translations = root.path("translations");
-
-            if (translations.isArray()) {
-                return translations.size();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // Fallback value to avoid division by zero
-        return 1;
     }
 
     /**
