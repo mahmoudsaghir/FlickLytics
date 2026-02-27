@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import forms.SearchForm;
 import models.GlobalDiversityResult;
-import models.Utils;
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
@@ -16,7 +15,6 @@ import play.libs.concurrent.ClassLoaderExecutionContext;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
-import services.ConfigService;
 import services.GenreService;
 import services.GlobalDiversityService;
 import services.TmdbService;
@@ -63,7 +61,7 @@ public class HomeController extends Controller {
     public HomeController(FormFactory formFactory, MessagesApi messagesApi,
                           ClassLoaderExecutionContext clExecutionContext, Config config,
                           GlobalDiversityService globalDiversityService, GenreService genreService,
-                          ConfigService configService, TmdbService tmdbService) {
+                          /*ConfigService configService,*/ TmdbService tmdbService) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
@@ -79,8 +77,9 @@ public class HomeController extends Controller {
             e.printStackTrace();
         }
         // load the target language constant at startup
-        this.targetLanguageConstant = configService.loadTargetLanguageConstant(this.apiUrl, this.tmdbToken);
+//        this.targetLanguageConstant = configService.loadTargetLanguageConstant(this.apiUrl, this.tmdbToken);
 //        this.targetLanguageConstant = loadTargetLanguageConstant();
+        this.targetLanguageConstant = this.tmdbService.loadTargetLanguageConstant(apiUrl, tmdbToken);
     }
 
     /**
@@ -139,7 +138,7 @@ public class HomeController extends Controller {
 //                        }
 //
 //                        JsonNode rootNode = Utils.sendGetRequest(searchUrl, this.tmdbToken);
-                        JsonNode rootNode = tmdbService.search(query, category);
+                        JsonNode rootNode = tmdbService.search(apiUrl, tmdbToken, query, category);
 
                         ArrayNode resultsArray = (ArrayNode) rootNode.get("results");
 
@@ -287,8 +286,8 @@ public class HomeController extends Controller {
 //                        String translationUrl = this.apiUrl + category + "/" + id + "/translations";
 //                        JsonNode translationRoot = Utils.sendGetRequest(translationUrl, this.tmdbToken);
 
-                        JsonNode detailsRoot = tmdbService.getDetails(category, id.longValue());
-                        JsonNode translationRoot = tmdbService.getTranslations(category, id.longValue());
+                        JsonNode detailsRoot = tmdbService.getDetails(apiUrl, tmdbToken, category, id.longValue());
+                        JsonNode translationRoot = tmdbService.getTranslations(apiUrl, tmdbToken, category, id.longValue());
 
                         return globalDiversityService.compute(
                                 category,
