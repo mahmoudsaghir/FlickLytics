@@ -61,7 +61,7 @@ public class HomeController extends Controller {
     public HomeController(FormFactory formFactory, MessagesApi messagesApi,
                           ClassLoaderExecutionContext clExecutionContext, Config config,
                           GlobalDiversityService globalDiversityService, GenreService genreService,
-                          /*ConfigService configService,*/ TmdbService tmdbService) {
+                          TmdbService tmdbService) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
@@ -77,8 +77,6 @@ public class HomeController extends Controller {
             e.printStackTrace();
         }
         // load the target language constant at startup
-//        this.targetLanguageConstant = configService.loadTargetLanguageConstant(this.apiUrl, this.tmdbToken);
-//        this.targetLanguageConstant = loadTargetLanguageConstant();
         this.targetLanguageConstant = this.tmdbService.loadTargetLanguageConstant(apiUrl, tmdbToken);
     }
 
@@ -130,14 +128,6 @@ public class HomeController extends Controller {
         // Run API call asynchronously using supplyAsync and ClassLoaderExecutionContext
         return CompletableFuture.supplyAsync(() -> {
                     try {
-//                        String searchUrl = this.apiUrl + "search/";
-//                        switch (category) {
-//                            case "movie" -> searchUrl += "movie?query=" + query;
-//                            case "tv" -> searchUrl += "tv?query=" + query;
-//                            case "person" -> searchUrl += "person?query=" + query;
-//                        }
-//
-//                        JsonNode rootNode = Utils.sendGetRequest(searchUrl, this.tmdbToken);
                         JsonNode rootNode = tmdbService.search(apiUrl, tmdbToken, query, category);
 
                         ArrayNode resultsArray = (ArrayNode) rootNode.get("results");
@@ -278,14 +268,6 @@ public class HomeController extends Controller {
         Messages messages = messagesApi.preferred(request);
         return CompletableFuture.supplyAsync(() -> {
                     try {
-                        // Fetch Details API (Original Overview)
-//                        String detailsUrl = this.apiUrl + category + "/" + id;
-//                        JsonNode detailsRoot = Utils.sendGetRequest(detailsUrl, this.tmdbToken);
-
-                        // Fetch Translations API
-//                        String translationUrl = this.apiUrl + category + "/" + id + "/translations";
-//                        JsonNode translationRoot = Utils.sendGetRequest(translationUrl, this.tmdbToken);
-
                         JsonNode detailsRoot = tmdbService.getDetails(apiUrl, tmdbToken, category, id.longValue());
                         JsonNode translationRoot = tmdbService.getTranslations(apiUrl, tmdbToken, category, id.longValue());
 
