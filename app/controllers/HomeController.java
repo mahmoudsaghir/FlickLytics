@@ -87,7 +87,7 @@ public class HomeController extends Controller {
      * @author Mahmoud Saghir
      */
     public Result redirectToFlicklytics() {
-        return redirect("/flicklytics");
+        return redirect(routes.HomeController.index());
     }
 
     /**

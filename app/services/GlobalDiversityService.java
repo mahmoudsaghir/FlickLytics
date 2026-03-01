@@ -17,14 +17,13 @@ public class GlobalDiversityService {
     /**
      * Computes Translation Density and Localization Index.
      *
-     * @param category movie or tv
-     * @param detailsRoot TMDb details response
-     * @param translationRoot TMDb translations response
+     * @param category               movie or tv
+     * @param detailsRoot            TMDb details response
+     * @param translationRoot        TMDb translations response
      * @param targetLanguageConstant normalization constant
      * @return GlobalDiversityResult
      */
     public GlobalDiversityResult compute(String category, JsonNode detailsRoot, JsonNode translationRoot, int targetLanguageConstant) {
-
         String originalOverview = detailsRoot.path("overview").asText("");
 
         String mediaName = category.equals("movie")
@@ -33,22 +32,18 @@ public class GlobalDiversityService {
 
         int originalLength = Math.max(originalOverview.length(), 1);
 
-        ArrayNode translationsArray =
-                (ArrayNode) translationRoot.path("translations");
+        ArrayNode translationsArray = (ArrayNode) translationRoot.path("translations");
 
         // Translation Density
-        double translationDensity =
-                (double) translationsArray.size() / targetLanguageConstant;
+        double translationDensity = (double) translationsArray.size() / targetLanguageConstant;
 
         // Localization Index
-        double localizationIndex =
-                StreamSupport.stream(translationsArray.spliterator(), false)
-                        .map(node -> node.path("data").path("overview").asText(""))
-                        .filter(overview -> !overview.isEmpty())
-                        .mapToDouble(overview ->
-                                (double) overview.length() / originalLength)
-                        .average()
-                        .orElse(0.0);
+        double localizationIndex = StreamSupport.stream(translationsArray.spliterator(), false)
+                .map(node -> node.path("data").path("overview").asText(""))
+                .filter(overview -> !overview.isEmpty())
+                .mapToDouble(overview -> (double) overview.length() / originalLength)
+                .average()
+                .orElse(0.0);
 
         return new GlobalDiversityResult(
                 Utils.round2(translationDensity),
