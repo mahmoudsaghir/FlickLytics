@@ -48,7 +48,7 @@ public class HomeController extends Controller {
     private final int targetLanguageConstant;
 
     // cache for search results
-    private static final Map<String, JsonNode> searchCache = new ConcurrentHashMap<>();
+    private final Map<String, JsonNode> searchCache = new ConcurrentHashMap<>();
 
     // caches for genres to avoid repeated API calls
     private final Map<Integer, String> movieGenres = new ConcurrentHashMap<>();
