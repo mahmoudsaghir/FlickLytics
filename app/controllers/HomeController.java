@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import forms.SearchForm;
 import models.GlobalDiversityResult;
+import models.MovieOrTVShow;
+import models.PersonStats;
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
@@ -31,12 +33,21 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
- * This controller contains an action to handle HTTP requests
- * to the application's home page.
+ * Main controller for the FlickLytics web application.
+ * Handles HTTP requests and responses for the search functionality and person statistics pages.
+ * All controller actions return CompletionStage for asynchronous, non-blocking processing.
+ *
+ * This is the single controller for the entire application as per requirements,
+ * with business logic delegated to service and model classes.
+ *
+ * @author Syed Shahab Shah
+ * @author Mahmoud Saghir
+ * @author Zenghui WU
  */
 public class HomeController extends Controller {
 
@@ -57,6 +68,19 @@ public class HomeController extends Controller {
     private final GlobalDiversityService globalDiversityService;
     private final TmdbService tmdbService;
 
+    /**
+     * Constructs the HomeController with all required dependencies.
+     * Dependencies are injected by Play Framework's Guice injector.
+     *
+     * @param formFactory Play's form factory for handling form data
+     * @param messagesApi Play's messages API for internationalization
+     * @param clExecutionContext Play's ClassLoaderExecutionContext for async operations
+     * @param config The application configuration
+     * @param globalDiversityService The Global Diversity service
+     * @param genreService The Genre service for loading genre maps
+     * @param tmdbService The TMDb service for API communication
+     * @author Mahmoud Saghir
+     */
     @Inject
     public HomeController(FormFactory formFactory, MessagesApi messagesApi,
                           ClassLoaderExecutionContext clExecutionContext, Config config,
@@ -104,6 +128,71 @@ public class HomeController extends Controller {
                 ok(views.html.index.render(form, request, messages, null))
                         .withNewSession()
         );
+    }
+
+    /**
+     * Handles GET requests to display a person's "known for" items and statistics.
+     * Retrieves data asynchronously from the TMDb API and displays comprehensive statistics.
+     *
+     * This action is asynchronous and non-blocking, returning a CompletionStage.
+     * Error handling is included to gracefully report any API failures.
+     *
+     * @param id The TMDb person ID (passed from the URL)
+     * @param request The HTTP request object (injected by Play)
+     * @return A CompletionStage containing an HTTP result rendering the person stats page
+     * @author Syed Shahab Shah
+     */
+    public CompletionStage<Result> personStats(String id, Http.Request request) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                JsonNode json = tmdbService.getPersonCredits(apiUrl, tmdbToken, id);
+                List<MovieOrTVShow> allItems = new java.util.ArrayList<>();
+
+                // Parse cast credits
+                JsonNode cast = json.get("cast");
+                if (cast != null && cast.isArray()) {
+                    StreamSupport.stream(cast.spliterator(), false)
+                            .map(this::parseMediaItem)
+                            .forEach(allItems::add);
+                }
+
+                // Parse crew credits
+                JsonNode crew = json.get("crew");
+                if (crew != null && crew.isArray()) {
+                    StreamSupport.stream(crew.spliterator(), false)
+                            .map(this::parseMediaItem)
+                            .forEach(allItems::add);
+                }
+
+                return new PersonStats(allItems);
+            } catch (Exception e) {
+                e.printStackTrace();
+                return new PersonStats(null);
+            }
+        }, clExecutionContext.current())
+        .thenApply(stats -> {
+            Messages messages = messagesApi.preferred(request);
+            return ok(views.html.personStats.render(stats, request, messages));
+        });
+    }
+
+    /**
+     * Parses a single media item JSON node into a MovieOrTVShow object.
+     * Handles both movie and TV show formats from the TMDb API.
+     *
+     * @param node The JSON node representing a media item
+     * @return A MovieOrTVShow object
+     * @author Syed Shahab Shah
+     */
+    private MovieOrTVShow parseMediaItem(JsonNode node) {
+        String itemId = node.has("id") ? node.get("id").asText() : "";
+        String title = node.has("title") ? node.get("title").asText() :
+                       node.has("name") ? node.get("name").asText() : "Unknown";
+        double popularity = node.has("popularity") ? node.get("popularity").asDouble() : 0.0;
+        double voteAverage = node.has("vote_average") ? node.get("vote_average").asDouble() : 0.0;
+        int voteCount = node.has("vote_count") ? node.get("vote_count").asInt() : 0;
+
+        return new MovieOrTVShow(itemId, title, popularity, voteAverage, voteCount);
     }
 
     /***
@@ -299,8 +388,7 @@ public class HomeController extends Controller {
     }
 
     /**
-     * An action that renders the Global Diversity page for a given TMDb ID and category.
-     *  The detail of (movie, tv) readability
+     * An action that renders the movie details page with readability scores.
      *
      * @author Zenghui WU
      */
@@ -308,9 +396,24 @@ public class HomeController extends Controller {
         return fetchAndRender("movie", id, request);
     }
 
+    /**
+     * An action that renders the TV show details page with readability scores.
+     *
+     * @author Zenghui WU
+     */
     public CompletionStage<Result> tv(Long id, Http.Request request) {
         return fetchAndRender("tv", id, request);
     }
+
+    /**
+     * Fetches details for a movie or TV show and renders the details page.
+     *
+     * @param type The type ("movie" or "tv")
+     * @param id The TMDb ID
+     * @param request The HTTP request
+     * @return A CompletionStage rendering the details page
+     * @author Zenghui WU
+     */
     private CompletionStage<Result> fetchAndRender(String type, Long id, Http.Request request) {
         Messages messages = messagesApi.preferred(request);
 
@@ -354,6 +457,10 @@ public class HomeController extends Controller {
     }
 
     // --- Readability helper types ---
+    /**
+     * Holds readability scores computed from text.
+     * @author Zenghui WU
+     */
     public static class ReadabilityScores {
         public final double fleschReadingEase;
         public final double fleschKincaidGrade;
@@ -370,6 +477,10 @@ public class HomeController extends Controller {
         }
     }
 
+    /**
+     * Utility class for computing Flesch readability scores.
+     * @author Zenghui WU
+     */
     public static class Readability {
 
         public static HomeController.ReadabilityScores compute(String text) {
@@ -387,16 +498,10 @@ public class HomeController extends Controller {
             sentences = Math.max(sentences, 1);
             words = Math.max(words, 1);
 
-            /* Flesch Reading Ease
-             *  FRE= 206-1.015*(total words/total sentences) - 84.6*(total syllables/total words)
-             */
             double fre = 206.835
                     - 1.015 * ((double) words / sentences)
                     - 84.6 * ((double) syllables / words);
 
-            /* Flesch-Kincaid Grade Level:
-            Grade level = 0.39*(total words/ total sentences)+ 11.8*(Total syllables/total words) - 15.59;
-            */
             double fkg = 0.39 * ((double) words / sentences)
                     + 11.8 * ((double) syllables / words)
                     - 15.59;
@@ -405,7 +510,6 @@ public class HomeController extends Controller {
         }
 
         private static int countSentences(String t) {
-            // simple sentence split: ., !, ?
             String[] parts = t.split("[.!?]+");
             int count = 0;
             for (String p : parts) if (!p.trim().isEmpty()) count++;
@@ -419,7 +523,6 @@ public class HomeController extends Controller {
             return count;
         }
 
-        // heuristic syllable counter (good enough for assignment)
         private static int countSyllables(String t) {
             String[] words = t.toLowerCase().replaceAll("[^a-z\\s]", " ").split("\\s+");
             int total = 0;
@@ -431,9 +534,7 @@ public class HomeController extends Controller {
         }
 
         private static int syllablesInWord(String w) {
-            // remove trailing 'e'
             w = w.replaceAll("e$", "");
-            // count vowel groups
             int count = 0;
             boolean prevVowel = false;
             for (char c : w.toCharArray()) {
@@ -448,8 +549,4 @@ public class HomeController extends Controller {
             return Math.round(x * 100.0) / 100.0;
         }
     }
-    /*
-     * this is the end of movie and TV detail and Readability (a)
-     *
-     * */
 }

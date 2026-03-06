@@ -48,9 +48,9 @@
                             </button>
                         </div>
                     </div>
-
                 }
             </div>
+
             <div id="results">
                 @if(resultsJson != null && resultsJson.nonEmpty) {
                     @defining(Json.parse(resultsJson).as[JsArray]) { history =>
@@ -89,7 +89,7 @@
                                                                 <strong>@((result \ "name").asOpt[String].getOrElse("N/A"))</strong>
                                                                     </h5>
 
-                                                                    <a href="#"
+                                                                    <a href="@routes.HomeController.personStats((result \ "id").asOpt[Int].getOrElse(0).toString)"
                                                                     class="btn btn-outline-dark btn-sm">
                                                                         Known for
                                                                     </a>
@@ -177,5 +177,4 @@
             </div>
         </div>
     </div>
-
 }

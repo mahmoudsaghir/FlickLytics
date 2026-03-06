@@ -48,6 +48,22 @@ public class TmdbService {
     }
 
     /**
+     * Fetches combined credits (cast + crew) for a person by their TMDb ID.
+     * Used to retrieve the "known for" items for person statistics.
+     *
+     * @param apiUrl The TMDb API base URL
+     * @param token Bearer token for authorization
+     * @param personId The TMDb person ID
+     * @return JsonNode containing cast and crew arrays
+     * @throws Exception if the API request fails
+     * @author Syed Shahab Shah
+     */
+    public JsonNode getPersonCredits(String apiUrl, String token, String personId) throws Exception {
+        String url = apiUrl + "person/" + personId + "/combined_credits";
+        return Utils.sendGetRequest(url, token);
+    }
+
+    /**
      * Loads collection translation count constant.
      */
     public int loadTargetLanguageConstant(String apiUrl, String token) {
