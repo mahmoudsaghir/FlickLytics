@@ -1,5 +1,8 @@
 package controllers;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.typesafe.config.Config;
+import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
 import models.PersonStats;
 import org.junit.Before;
@@ -8,110 +11,154 @@ import play.Application;
 import play.data.FormFactory;
 import play.i18n.MessagesApi;
 import play.inject.guice.GuiceApplicationBuilder;
+import play.libs.Json;
+import play.libs.concurrent.ClassLoaderExecutionContext;
 import play.mvc.Http;
 import play.mvc.Result;
-import play.test.WithApplication;
-import services.TMDbService;
+import play.test.Helpers;
+import services.GenreService;
+import services.GlobalDiversityService;
+import services.TmdbService;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static play.mvc.Http.Status.OK;
+import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import static play.test.Helpers.*;
 
 /**
  * Unit tests for the HomeController class.
- * Tests controller actions including index and personStats.
- * Uses Mockito to mock external dependencies (TMDbService, WSClient).
+ * Tests controller actions including index, personStats, and globalDiversity.
+ * Uses Mockito to mock external dependencies (TmdbService, GlobalDiversityService).
  *
  * Testing strategy:
  * - Index action: Tests rendering of empty form
  * - Person stats action: Tests API retrieval and error handling
+ * - Global diversity action: Tests computation and rendering
  * - Service mocking: Verifies proper asynchronous handling
  *
  * @author Syed Shahab Shah
+ * @author Mahmoud Saghir
  */
-public class HomeControllerTest extends WithApplication {
-
+public class HomeControllerTest {
     private HomeController controller;
-    private TMDbService mockTmdbService;
-    private FormFactory formFactory;
-    private MessagesApi messagesApi;
+    private TmdbService tmdbService;
+    private GlobalDiversityService globalDiversityService;
 
     /**
      * Sets up test fixtures before each test.
-     * Creates mock TMDbService and injects it into the controller.
+     * Creates mock services and injects them into the controller.
      *
+     * @author Mahmoud Saghir
      * @author Syed Shahab Shah
      */
     @Before
     public void setUp() {
-        mockTmdbService = mock(TMDbService.class);
-        formFactory = app.injector().instanceOf(FormFactory.class);
-        messagesApi = app.injector().instanceOf(MessagesApi.class);
-        controller = new HomeController(formFactory, messagesApi, mockTmdbService);
+        tmdbService = mock(TmdbService.class);
+        globalDiversityService = mock(GlobalDiversityService.class);
+        GenreService genreService = mock(GenreService.class);
+        Config config = mock(Config.class);
+
+        when(config.getString("tmdb.api.key")).thenReturn("fake-key");
+        when(config.getString("tmdb.api.url")).thenReturn("fake-url");
+
+        when(tmdbService.loadTargetLanguageConstant(anyString(), anyString())).thenReturn(10);
+
+        Application application = new GuiceApplicationBuilder().build();
+        Helpers.start(application);
+
+        controller = new HomeController(
+                application.injector().instanceOf(FormFactory.class),
+                application.injector().instanceOf(MessagesApi.class),
+                application.injector().instanceOf(ClassLoaderExecutionContext.class),
+                config,
+                globalDiversityService,
+                genreService,
+                tmdbService
+        );
     }
 
     /**
-     * Provides the test application instance.
-     * Builds a Play application with the test configuration.
+     * Tests the globalDiversity action.
+     * Mocks TmdbService and GlobalDiversityService to return sample data.
+     * Verifies successful rendering with computed metrics.
      *
-     * @return The configured Play application
-     * @author Syed Shahab Shah
-     */
-    @Override
-    protected Application provideApplication() {
-        return new GuiceApplicationBuilder().build();
-    }
-
-    /**
-     * Tests the index action returns HTTP 200 OK.
-     * Verifies that the index page renders successfully with an empty form.
-     *
-     * @author Syed Shahab Shah
+     * @author Mahmoud Saghir
      */
     @Test
-    public void testIndexAction() {
-        Http.RequestBuilder request = new Http.RequestBuilder()
-                .method(GET)
-                .uri("/");
+    public void testGlobalDiversity() throws Exception {
+        // Mock TMDb responses
+        JsonNode detailsNode = Json.newObject().put("overview", "abc");
+        JsonNode translationsNode = Json.newObject().set("translations", Json.newArray());
 
-        Result result = route(app, request);
+        when(tmdbService.getDetails(anyString(), anyString(), eq("movie"), eq(1L)))
+                .thenReturn(detailsNode);
+
+        when(tmdbService.getTranslations(anyString(), anyString(), eq("movie"), eq(1L)))
+                .thenReturn(translationsNode);
+
+        // Mock computed result
+        GlobalDiversityResult mockResult = new GlobalDiversityResult(0.5, 0.8, "Test Movie");
+
+        when(globalDiversityService.compute(eq("movie"), any(), any(), eq(10)))
+                .thenReturn(mockResult);
+
+        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/");
+        Http.Request request = requestBuilder.build();
+
+        CompletionStage<Result> resultStage = controller.globalDiversity(request, "movie", 1);
+
+        Result result = resultStage.toCompletableFuture().join();
+        String html = contentAsString(result);
+
         assertEquals(OK, result.status());
+        assertTrue(html.contains("Test Movie"));
+        assertTrue(html.contains("Translation Density"));
+        assertTrue(html.contains("0.5"));
+        assertTrue(html.contains("Localization Index"));
+        assertTrue(html.contains("0.8"));
     }
 
     /**
      * Tests the personStats action with valid person ID.
-     * Mocks TMDbService to return sample person statistics.
+     * Mocks TmdbService to return sample person credits.
      * Verifies successful API call and stats page rendering.
      *
      * @author Syed Shahab Shah
      */
     @Test
-    public void testPersonStatsActionWithValidId() {
-        // Arrange: Create mock person stats
-        List<MovieOrTVShow> mockItems = new ArrayList<>();
-        mockItems.add(new MovieOrTVShow("1", "Movie A", 10.0, 8.0, 100));
-        mockItems.add(new MovieOrTVShow("2", "Movie B", 20.0, 7.0, 200));
-        PersonStats mockStats = new PersonStats(mockItems);
+    public void testPersonStatsActionWithValidId() throws Exception {
+        // Arrange: Create mock combined credits JSON
+        JsonNode castItem1 = Json.newObject()
+                .put("id", 1).put("title", "Movie A")
+                .put("popularity", 10.0).put("vote_average", 8.0).put("vote_count", 100);
+        JsonNode castItem2 = Json.newObject()
+                .put("id", 2).put("title", "Movie B")
+                .put("popularity", 20.0).put("vote_average", 7.0).put("vote_count", 200);
 
-        // Mock the service to return these stats
-        when(mockTmdbService.getPersonStats(anyString()))
-                .thenReturn(CompletableFuture.completedFuture(mockStats));
+        com.fasterxml.jackson.databind.node.ObjectNode creditsJson = Json.newObject();
+        com.fasterxml.jackson.databind.node.ArrayNode castArray = Json.newArray();
+        castArray.add(castItem1);
+        castArray.add(castItem2);
+        creditsJson.set("cast", castArray);
+        creditsJson.set("crew", Json.newArray());
 
-        // Act: Request person stats
-        Http.RequestBuilder request = new Http.RequestBuilder()
-                .method(GET)
-                .uri("/person/1/stats");
+        when(tmdbService.getPersonCredits(anyString(), anyString(), eq("1")))
+                .thenReturn(creditsJson);
 
-        Result result = route(app, request);
+        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/1/stats");
+        Http.Request request = requestBuilder.build();
 
-        // Assert: Check that person stats page loaded successfully
+        CompletionStage<Result> resultStage = controller.personStats("1", request);
+        Result result = resultStage.toCompletableFuture().join();
+
         assertEquals(OK, result.status());
+        String html = contentAsString(result);
+        assertTrue(html.contains("Person Statistics"));
+        assertTrue(html.contains("Movie A"));
+        assertTrue(html.contains("Movie B"));
     }
 }

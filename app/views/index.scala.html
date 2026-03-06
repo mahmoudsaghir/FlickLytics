@@ -1,61 +1,180 @@
-@(searchForm: play.data.Form[forms.SearchForm], results: java.util.List[models.MovieOrTVShow])(implicit request: play.mvc.Http.Request, messages: play.i18n.Messages)
+@(searchForm: Form[forms.SearchForm])(implicit request: Http.Request,
+        messages: MessagesProvider, resultsJson: String = null)
+
+@import play.api.libs.json._
 
 @main("FlickLytics") {
-<div class="container mt-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8 text-center">
-            <div class="card shadow-sm p-4 mb-4">
-                <h1 class="mb-4 text-center">Welcome to FlickLytics</h1>
 
-                @helper.form(routes.HomeController.search()) {
-                @helper.CSRF.formField
+    <div class="container mt-4 d-flex justify-content-center">
+        <div class="col-md-12">
+            <div class="col-md-8 col-lg-8 text-center card shadow-sm p-3 m-auto mb-3">
+                <h1 class="mb-0 text-center">Welcome to FlickLytics</h1>
 
-                <div class="row g-3 align-items-center">
-                    <div class="col-md-5">
+                @helper.form(routes.HomeController.search(), Symbol("method") -> "POST") {
+
+                    <div id="search_form" class="d-flex align-items-end gap-4">
+                        <div class="flex-grow-1">
                         @helper.inputText(
-                        searchForm("query"),
-                        Symbol("class") -> "form-control",
-                        Symbol("placeholder") -> "Search...",
-                        Symbol("_label") -> null,
-                        Symbol("_showConstraints") -> false
+                            searchForm("query"),
+                            Symbol("_label") -> null,
+                            Symbol("class") -> {
+                                if(searchForm("query").hasErrors) "form-control is-invalid" else "form-control"
+                            },
+                            Symbol("placeholder") -> "Enter search terms",
+                            Symbol("_showConstraints") -> false
                         )
-                    </div>
-                    <div class="col-md-4">
+                        </div>
+
+                        <div class="flex-grow-1">
                         @helper.select(
-                        searchForm("category"),
-                        options = Seq("movie"->"Movie", "tv"->"TV Show", "person"->"Person"),
-                        Symbol("class") -> "form-select",
-                        Symbol("_label") -> null,
-                        Symbol("_showConstraints") -> false
+                            searchForm("category"),
+                            options = Seq(
+                                "movie" -> "Movie",
+                                "tv" -> "TV Show",
+                                "person" -> "Person"
+                            ),
+                            Symbol("_label") -> null,
+                            Symbol("class") -> {
+                                if(searchForm("category").hasErrors) "form-select is-invalid" else "form-select"
+                            },
+                            Symbol("_default") -> "Select a category",
+                            Symbol("_showConstraints") -> false
                         )
+                        </div>
+
+                        <div class="flex-grow-1 mb-3">
+                            <button type="submit" class="btn btn-primary w-100">
+                                Go
+                            </button>
+                        </div>
                     </div>
-                    <div class="col-md-3 d-grid">
-                        <button type="submit" class="btn btn-primary">Go</button>
-                    </div>
-                </div>
                 }
             </div>
 
-            @* --- RESULTS SECTION --- *@
-            @if(results != null && !results.isEmpty) {
-            <div class="text-start">
-                <h2 class="mb-3">Results</h2>
-                <div class="list-group shadow-sm">
-                    @for(item <- results) {
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <h5 class="mb-1">@item.getTitle()</h5>
-                            <small class="text-muted">Popularity: @item.getPopularity()</small>
-                        </div>
-                        <a href="@routes.HomeController.personStats(item.getId())" class="btn btn-outline-info btn-sm">
-                            View Stats
-                        </a>
-                    </div>
+            <div id="results">
+                @if(resultsJson != null && resultsJson.nonEmpty) {
+                    @defining(Json.parse(resultsJson).as[JsArray]) { history =>
+
+                        @for(search <- history.value) {
+
+                            @defining((search \ "query").asOpt[String].getOrElse("")) { query =>
+                                @defining((search \ "category").asOpt[String].getOrElse("")) { category =>
+                                    @defining((search \ "total_results").asOpt[Int].getOrElse(0)) { totalResults =>
+
+                                        <div class="mb-3 mt-4">
+                                            <h4>
+                                                Search terms: @query.
+                                                Category: @category.capitalize,
+                                                Total results: @totalResults.
+                                            </h4>
+                                        </div>
+
+                                        @defining((search \ "results").asOpt[JsArray].map(_.value).getOrElse(Seq.empty)) { results =>
+
+                                            @for(result <- results) {
+
+                                                <div class="card mb-3 shadow-sm p-3">
+                                                    <div class="card-body">
+
+                                                        @if(category == "person") {
+
+                                                            <a href="@((result \ "photo_link").asOpt[String].getOrElse("#"))"
+                                                            target="_blank"
+                                                            class="btn btn-outline-primary btn-sm float-end ms-3">
+                                                                Photo
+                                                            </a>
+
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <h5 class="card-title mb-0">
+                                                                <strong>@((result \ "name").asOpt[String].getOrElse("N/A"))</strong>
+                                                                    </h5>
+
+                                                                    <a href="@routes.HomeController.personStats((result \ "id").asOpt[Int].getOrElse(0).toString)"
+                                                                    class="btn btn-outline-dark btn-sm">
+                                                                        Known for
+                                                                    </a>
+                                                            </div>
+
+                                                    <p class="card-text">
+                                                                <strong>ID:</strong> @((result \ "id").asOpt[Int].getOrElse(0))<br>
+                                                                <strong>Popularity:</strong> @((result \ "popularity").asOpt[JsNumber].map(_.value.doubleValue).getOrElse(0.0))<br>
+                                                                <strong>Gender:</strong> @((result \ "gender").asOpt[Int].map {
+                                                                    case 1 => "F"
+                                                                    case 2 => "M"
+                                                                    case _ => "Other"
+                                                                }.getOrElse("N/A"))<br>
+                                                                <strong>Department:</strong> @((result \ "known_for_department").asOpt[String].getOrElse("N/A"))
+                                                            </p>
+
+                                                        } else {
+
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <h5 class="card-title mb-0">
+                                                                    <a href="/flicklytics@((result \ "link").asOpt[String].getOrElse("#"))"
+                                                                       >
+                                                                        @((result \ "title").asOpt[String]
+                                                                            .orElse((result \ "name").asOpt[String])
+                                                                            .getOrElse("N/A"))
+                                                                    </a>
+                                                                </h5>
+
+                                                                <div class="d-flex gap-2">
+                                                                    <a href="@routes.HomeController.globalDiversity(category,
+                                                                       (result \ "id").asOpt[Int].getOrElse(0))"
+                                                                       class="btn btn-outline-primary btn-sm">
+                                                                        Global Diversity
+                                                                    </a>
+
+                                                                    <a href=""
+                                                                       class="btn btn-outline-secondary btn-sm">
+                                                                        Reviews
+                                                                    </a>
+
+                                                                    <a href=""
+                                                                       class="btn btn-outline-success btn-sm">
+                                                                        Financial Performance
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+
+                                                            <p class="card-text">
+                                                                <strong>ID:</strong> @((result \ "id").asOpt[Int].getOrElse(0))<br>
+                                                                <strong>Language:</strong> @((result \ "language").asOpt[String].getOrElse("N/A"))<br>
+                                                                <strong>Genres:</strong> @{
+                                                                    (result \ "genres").asOpt[JsArray]
+                                                                        .filter(_.value.nonEmpty)
+                                                                        .map(_.value.map(_.as[String]).mkString(", "))
+                                                                        .getOrElse("N/A")
+                                                                }<br>
+
+                                                                <strong>Release Date:</strong> @{
+                                                                    (result \ "release_date").asOpt[String]
+                                                                        .filter(_.nonEmpty)
+                                                                        .orElse((result \ "first_air_date").asOpt[String].filter(_.nonEmpty))
+                                                                        .getOrElse("N/A")
+                                                                }<br>
+                                                                <strong>Popularity:</strong> @((result \ "popularity").asOpt[JsNumber].map(_.value.doubleValue).getOrElse(0.0))<br>
+                                                                <strong>Vote Average:</strong> @((result \ "vote_average").asOpt[JsNumber].map(_.value.doubleValue).getOrElse(0.0))
+                                                            </p>
+
+                                                        }
+
+                                                    </div>
+                                                </div>
+
+                                            }
+
+                                        }
+
+                                    }
+                                }
+                            }
+
+                        }
+
                     }
-                </div>
+                }
             </div>
-            }
         </div>
     </div>
-</div>
 }
