@@ -36,7 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-
+import models.Readability;
 /**
  * Main controller for the FlickLytics web application.
  * Handles HTTP requests and responses for the search functionality and person statistics pages.
@@ -449,104 +449,12 @@ public class HomeController extends Controller {
             }
 
             String overview = details.path("overview").asText("");
-            HomeController.ReadabilityScores scores = HomeController.Readability.compute(overview);
+            Readability.ReadabilityScores scores = Readability.compute(overview);
 
             return ok(views.html.details.render(type, details, overview, scores, request, messages));
         });
 
     }
 
-    // --- Readability helper types ---
-    /**
-     * Holds readability scores computed from text.
-     * @author Zenghui WU
-     */
-    public static class ReadabilityScores {
-        public final double fleschReadingEase;
-        public final double fleschKincaidGrade;
-        public final int sentences;
-        public final int words;
-        public final int syllables;
 
-        public ReadabilityScores(double fre, double fkg, int s, int w, int sy) {
-            this.fleschReadingEase = fre;
-            this.fleschKincaidGrade = fkg;
-            this.sentences = s;
-            this.words = w;
-            this.syllables = sy;
-        }
-    }
-
-    /**
-     * Utility class for computing Flesch readability scores.
-     * @author Zenghui WU
-     */
-    public static class Readability {
-
-        public static HomeController.ReadabilityScores compute(String text) {
-            if (text == null) text = "";
-            String cleaned = text.trim();
-            if (cleaned.isEmpty()) {
-                return new HomeController.ReadabilityScores(0.0, 0.0, 0, 0, 0);
-            }
-
-            int sentences = countSentences(cleaned);
-            int words = countWords(cleaned);
-            int syllables = countSyllables(cleaned);
-
-            // avoid divide-by-zero
-            sentences = Math.max(sentences, 1);
-            words = Math.max(words, 1);
-
-            double fre = 206.835
-                    - 1.015 * ((double) words / sentences)
-                    - 84.6 * ((double) syllables / words);
-
-            double fkg = 0.39 * ((double) words / sentences)
-                    + 11.8 * ((double) syllables / words)
-                    - 15.59;
-
-            return new HomeController.ReadabilityScores(round2(fre), round2(fkg), sentences, words, syllables);
-        }
-
-        private static int countSentences(String t) {
-            String[] parts = t.split("[.!?]+");
-            int count = 0;
-            for (String p : parts) if (!p.trim().isEmpty()) count++;
-            return Math.max(count, 1);
-        }
-
-        private static int countWords(String t) {
-            String[] parts = t.trim().split("\\s+");
-            int count = 0;
-            for (String p : parts) if (!p.trim().isEmpty()) count++;
-            return count;
-        }
-
-        private static int countSyllables(String t) {
-            String[] words = t.toLowerCase().replaceAll("[^a-z\\s]", " ").split("\\s+");
-            int total = 0;
-            for (String w : words) {
-                if (w.isEmpty()) continue;
-                total += syllablesInWord(w);
-            }
-            return total;
-        }
-
-        private static int syllablesInWord(String w) {
-            w = w.replaceAll("e$", "");
-            int count = 0;
-            boolean prevVowel = false;
-            for (char c : w.toCharArray()) {
-                boolean vowel = "aeiouy".indexOf(c) >= 0;
-                if (vowel && !prevVowel) count++;
-                prevVowel = vowel;
-            }
-            return Math.max(count, 1);
-        }
-
-        private static double round2(double x) {
-            return Math.round(x * 100.0) / 100.0;
-        }
-    }
 }
