@@ -1,0 +1,66 @@
+@(stats: models.PersonStats, request: Http.Request, messages: play.i18n.Messages)
+
+@main("Person Statistics") {
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Person Statistics</h1>
+        <a href="/" class="btn btn-secondary">Back to Search</a>
+    </div>
+
+    @* --- Summary Statistics Table --- *@
+    <div class="card shadow-sm mb-5">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Aggregated Statistics (Latest 50 Items)</h4>
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered text-center">
+                <thead class="table-light">
+                <tr>
+                    <th>Metric</th>
+                    <th>Average</th>
+                    <th>Minimum</th>
+                    <th>Maximum</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><strong>Popularity</strong></td>
+                    <td>@("%.2f".format(stats.getPopAvg()))</td>
+                    <td>@("%.2f".format(stats.getPopMin()))</td>
+                    <td>@("%.2f".format(stats.getPopMax()))</td>
+                </tr>
+                <tr>
+                    <td><strong>Vote Average</strong></td>
+                    <td>@("%.2f".format(stats.getVoteAvg()))</td>
+                    <td>@("%.2f".format(stats.getVoteMin()))</td>
+                    <td>@("%.2f".format(stats.getVoteMax()))</td>
+                </tr>
+                <tr>
+                    <td><strong>Vote Count</strong></td>
+                    <td>@("%.1f".format(stats.getCountAvg()))</td>
+                    <td>@stats.getCountMin()</td>
+                    <td>@stats.getCountMax()</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* --- Individual Items List --- *@
+    <h3>Recent Works</h3>
+    <div class="list-group shadow-sm">
+        @for(item <- stats.getLatestItems()) {
+        <div class="list-group-item">
+            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">@item.getTitle()</h5>
+                <small class="text-muted">ID: @item.getId()</small>
+            </div>
+            <p class="mb-1">
+                Popularity: <span class="badge bg-info text-dark">@item.getPopularity()</span> |
+                Rating: <span class="badge bg-warning text-dark">@item.getVoteAverage()</span>
+            </p>
+        </div>
+        }
+    </div>
+</div>
+}

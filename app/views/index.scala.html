@@ -1,61 +1,61 @@
-@(searchForm: Form[forms.SearchForm])(implicit request: Http.Request, messages: MessagesProvider)
+@(searchForm: play.data.Form[forms.SearchForm], results: java.util.List[models.MovieOrTVShow])(implicit request: play.mvc.Http.Request, messages: play.i18n.Messages)
 
 @main("FlickLytics") {
-
-    <div class="container mt-4 d-flex justify-content-center">
-        <div class="col-md-8 col-lg-6 text-center">
-            <div class="card shadow-sm p-4">
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="card shadow-sm p-4 mb-4">
                 <h1 class="mb-4 text-center">Welcome to FlickLytics</h1>
 
                 @helper.form(routes.HomeController.search()) {
-                    @helper.CSRF.formField
+                @helper.CSRF.formField
 
-                    <div class="row g-3 align-items-end">
-
-                        <div id="search_form" class="col-md-9 text-start">
-
-                            <div class="">
-                            @helper.inputText(
-                                searchForm("query"),
-                                Symbol("_label") -> null,
-                                Symbol("class") -> {
-                                    if(searchForm("query").hasErrors) "form-control is-invalid" else "form-control"
-                                },
-                                Symbol("placeholder") -> "Enter search terms",
-                                Symbol("_showConstraints") -> false
-                            )
-                            </div>
-
-                            <div class="">
-                            @helper.select(
-                                searchForm("category"),
-                                options = Seq(
-                                    "movie" -> "Movie",
-                                    "tv" -> "TV Show",
-                                    "person" -> "Person"
-                                ),
-                                Symbol("_label") -> null,
-                                Symbol("class") -> {
-                                    if(searchForm("category").hasErrors) "form-select is-invalid" else "form-select"
-                                },
-                                Symbol("_default") -> "Select a category",
-                                Symbol("_showConstraints") -> false
-                            )
-                            </div>
-
-                        </div>
-
-                        <div class="col-md-3 d-grid mb-3">
-                            <button type="submit" class="btn btn-primary h-100">
-                                Go
-                            </button>
-                        </div>
-
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-5">
+                        @helper.inputText(
+                        searchForm("query"),
+                        Symbol("class") -> "form-control",
+                        Symbol("placeholder") -> "Search...",
+                        Symbol("_label") -> null,
+                        Symbol("_showConstraints") -> false
+                        )
                     </div>
-
+                    <div class="col-md-4">
+                        @helper.select(
+                        searchForm("category"),
+                        options = Seq("movie"->"Movie", "tv"->"TV Show", "person"->"Person"),
+                        Symbol("class") -> "form-select",
+                        Symbol("_label") -> null,
+                        Symbol("_showConstraints") -> false
+                        )
+                    </div>
+                    <div class="col-md-3 d-grid">
+                        <button type="submit" class="btn btn-primary">Go</button>
+                    </div>
+                </div>
                 }
             </div>
+
+            @* --- RESULTS SECTION --- *@
+            @if(results != null && !results.isEmpty) {
+            <div class="text-start">
+                <h2 class="mb-3">Results</h2>
+                <div class="list-group shadow-sm">
+                    @for(item <- results) {
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">@item.getTitle()</h5>
+                            <small class="text-muted">Popularity: @item.getPopularity()</small>
+                        </div>
+                        <a href="@routes.HomeController.personStats(item.getId())" class="btn btn-outline-info btn-sm">
+                            View Stats
+                        </a>
+                    </div>
+                    }
+                </div>
+            </div>
+            }
         </div>
     </div>
-
+</div>
 }
