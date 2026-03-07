@@ -1,6 +1,6 @@
 @import scala.jdk.CollectionConverters._
 @(itemType: String, details: com.fasterxml.jackson.databind.JsonNode, overview: String,
-scores: controllers.HomeController.ReadabilityScores,
+scores: models.Readability.ReadabilityScores,
 request: play.mvc.Http.Request, messages: play.i18n.Messages)
 
 @main("Details") {

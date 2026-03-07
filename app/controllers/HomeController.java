@@ -8,6 +8,7 @@ import forms.SearchForm;
 import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
 import models.PersonStats;
+import models.Readability;
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
@@ -22,10 +23,6 @@ import services.GlobalDiversityService;
 import services.TmdbService;
 
 import javax.inject.Inject;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import services.MediaDetailsService;
 
 /**
  * Main controller for the FlickLytics web application.
@@ -57,6 +55,8 @@ public class HomeController extends Controller {
     private final String tmdbToken;
     private final String apiUrl;
     private final int targetLanguageConstant;
+    // Service for media details and readability
+    private final MediaDetailsService mediaDetailsService;
 
     // cache for search results
     private final Map<String, JsonNode> searchCache = new ConcurrentHashMap<>();
@@ -85,7 +85,7 @@ public class HomeController extends Controller {
     public HomeController(FormFactory formFactory, MessagesApi messagesApi,
                           ClassLoaderExecutionContext clExecutionContext, Config config,
                           GlobalDiversityService globalDiversityService, GenreService genreService,
-                          TmdbService tmdbService) {
+                          TmdbService tmdbService, MediaDetailsService mediaDetailsService) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
@@ -93,6 +93,7 @@ public class HomeController extends Controller {
         this.apiUrl = config.getString("tmdb.api.url");
         this.globalDiversityService = globalDiversityService;
         this.tmdbService = tmdbService;
+        this.mediaDetailsService = mediaDetailsService;
 
         // load genres at startup to populate the genre maps
         try {
@@ -144,36 +145,36 @@ public class HomeController extends Controller {
      */
     public CompletionStage<Result> personStats(String id, Http.Request request) {
         return CompletableFuture.supplyAsync(() -> {
-            try {
-                JsonNode json = tmdbService.getPersonCredits(apiUrl, tmdbToken, id);
-                List<MovieOrTVShow> allItems = new java.util.ArrayList<>();
+                    try {
+                        JsonNode json = tmdbService.getPersonCredits(apiUrl, tmdbToken, id);
+                        List<MovieOrTVShow> allItems = new java.util.ArrayList<>();
 
-                // Parse cast credits
-                JsonNode cast = json.get("cast");
-                if (cast != null && cast.isArray()) {
-                    StreamSupport.stream(cast.spliterator(), false)
-                            .map(this::parseMediaItem)
-                            .forEach(allItems::add);
-                }
+                        // Parse cast credits
+                        JsonNode cast = json.get("cast");
+                        if (cast != null && cast.isArray()) {
+                            StreamSupport.stream(cast.spliterator(), false)
+                                    .map(this::parseMediaItem)
+                                    .forEach(allItems::add);
+                        }
 
-                // Parse crew credits
-                JsonNode crew = json.get("crew");
-                if (crew != null && crew.isArray()) {
-                    StreamSupport.stream(crew.spliterator(), false)
-                            .map(this::parseMediaItem)
-                            .forEach(allItems::add);
-                }
+                        // Parse crew credits
+                        JsonNode crew = json.get("crew");
+                        if (crew != null && crew.isArray()) {
+                            StreamSupport.stream(crew.spliterator(), false)
+                                    .map(this::parseMediaItem)
+                                    .forEach(allItems::add);
+                        }
 
-                return new PersonStats(allItems);
-            } catch (Exception e) {
-                e.printStackTrace();
-                return new PersonStats(null);
-            }
-        }, clExecutionContext.current())
-        .thenApply(stats -> {
-            Messages messages = messagesApi.preferred(request);
-            return ok(views.html.personStats.render(stats, request, messages));
-        });
+                        return new PersonStats(allItems);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return new PersonStats(null);
+                    }
+                }, clExecutionContext.current())
+                .thenApply(stats -> {
+                    Messages messages = messagesApi.preferred(request);
+                    return ok(views.html.personStats.render(stats, request, messages));
+                });
     }
 
     /**
@@ -187,7 +188,7 @@ public class HomeController extends Controller {
     private MovieOrTVShow parseMediaItem(JsonNode node) {
         String itemId = node.has("id") ? node.get("id").asText() : "";
         String title = node.has("title") ? node.get("title").asText() :
-                       node.has("name") ? node.get("name").asText() : "Unknown";
+                node.has("name") ? node.get("name").asText() : "Unknown";
         double popularity = node.has("popularity") ? node.get("popularity").asDouble() : 0.0;
         double voteAverage = node.has("vote_average") ? node.get("vote_average").asDouble() : 0.0;
         int voteCount = node.has("vote_count") ? node.get("vote_count").asInt() : 0;
@@ -386,7 +387,6 @@ public class HomeController extends Controller {
                     ));
                 });
     }
-
     /**
      * An action that renders the movie details page with readability scores.
      *
@@ -419,134 +419,28 @@ public class HomeController extends Controller {
 
         return CompletableFuture.supplyAsync(() -> {
             try {
-                String urlStr = "https://api.themoviedb.org/3/" + type + "/" + id + "?language=en-US";
-                HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-                conn.setRequestMethod("GET");
-                conn.setRequestProperty("Authorization", "Bearer " + tmdbToken);
-                conn.setRequestProperty("Accept", "application/json");
-
-                int code = conn.getResponseCode();
-                BufferedReader in = new BufferedReader(new InputStreamReader(
-                        code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream()
-                ));
-
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = in.readLine()) != null) sb.append(line);
-                in.close();
-
-                if (code < 200 || code >= 300) {
-                    return Json.newObject().put("error", "TMDb error " + code).put("body", sb.toString());
-                }
-                return Json.parse(sb.toString());
-
+                return mediaDetailsService.getDetailsWithReadability(apiUrl, tmdbToken, type, id);
             } catch (Exception e) {
-                return Json.newObject().put("error", "Failed to fetch details");
+                e.printStackTrace();
+                return null;
             }
-        }, clExecutionContext.current()).thenApply(details -> {
-            if (details.has("error")) {
-                return internalServerError(details.toString());
+        }, clExecutionContext.current()).thenApply(result -> {
+            if (result == null || result.details == null) {
+                return internalServerError("Failed to fetch details");
             }
 
-            String overview = details.path("overview").asText("");
-            HomeController.ReadabilityScores scores = HomeController.Readability.compute(overview);
-
-            return ok(views.html.details.render(type, details, overview, scores, request, messages));
+            return ok(views.html.details.render(
+                    type,
+                    result.details,
+                    result.overview,
+                    result.scores,
+                    request,
+                    messages
+            ));
         });
-
     }
 
-    // --- Readability helper types ---
-    /**
-     * Holds readability scores computed from text.
-     * @author Zenghui WU
-     */
-    public static class ReadabilityScores {
-        public final double fleschReadingEase;
-        public final double fleschKincaidGrade;
-        public final int sentences;
-        public final int words;
-        public final int syllables;
 
-        public ReadabilityScores(double fre, double fkg, int s, int w, int sy) {
-            this.fleschReadingEase = fre;
-            this.fleschKincaidGrade = fkg;
-            this.sentences = s;
-            this.words = w;
-            this.syllables = sy;
-        }
-    }
 
-    /**
-     * Utility class for computing Flesch readability scores.
-     * @author Zenghui WU
-     */
-    public static class Readability {
 
-        public static HomeController.ReadabilityScores compute(String text) {
-            if (text == null) text = "";
-            String cleaned = text.trim();
-            if (cleaned.isEmpty()) {
-                return new HomeController.ReadabilityScores(0.0, 0.0, 0, 0, 0);
-            }
-
-            int sentences = countSentences(cleaned);
-            int words = countWords(cleaned);
-            int syllables = countSyllables(cleaned);
-
-            // avoid divide-by-zero
-            sentences = Math.max(sentences, 1);
-            words = Math.max(words, 1);
-
-            double fre = 206.835
-                    - 1.015 * ((double) words / sentences)
-                    - 84.6 * ((double) syllables / words);
-
-            double fkg = 0.39 * ((double) words / sentences)
-                    + 11.8 * ((double) syllables / words)
-                    - 15.59;
-
-            return new HomeController.ReadabilityScores(round2(fre), round2(fkg), sentences, words, syllables);
-        }
-
-        private static int countSentences(String t) {
-            String[] parts = t.split("[.!?]+");
-            int count = 0;
-            for (String p : parts) if (!p.trim().isEmpty()) count++;
-            return Math.max(count, 1);
-        }
-
-        private static int countWords(String t) {
-            String[] parts = t.trim().split("\\s+");
-            int count = 0;
-            for (String p : parts) if (!p.trim().isEmpty()) count++;
-            return count;
-        }
-
-        private static int countSyllables(String t) {
-            String[] words = t.toLowerCase().replaceAll("[^a-z\\s]", " ").split("\\s+");
-            int total = 0;
-            for (String w : words) {
-                if (w.isEmpty()) continue;
-                total += syllablesInWord(w);
-            }
-            return total;
-        }
-
-        private static int syllablesInWord(String w) {
-            w = w.replaceAll("e$", "");
-            int count = 0;
-            boolean prevVowel = false;
-            for (char c : w.toCharArray()) {
-                boolean vowel = "aeiouy".indexOf(c) >= 0;
-                if (vowel && !prevVowel) count++;
-                prevVowel = vowel;
-            }
-            return Math.max(count, 1);
-        }
-
-        private static double round2(double x) {
-            return Math.round(x * 100.0) / 100.0;
-        }
-    }
 }
