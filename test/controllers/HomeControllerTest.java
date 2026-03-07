@@ -18,6 +18,7 @@ import play.mvc.Result;
 import play.test.Helpers;
 import services.GenreService;
 import services.GlobalDiversityService;
+import services.MediaDetailsService;
 import services.TmdbService;
 
 import java.util.ArrayList;
@@ -47,7 +48,7 @@ public class HomeControllerTest {
     private HomeController controller;
     private TmdbService tmdbService;
     private GlobalDiversityService globalDiversityService;
-
+    private MediaDetailsService mediaDetailsService;
     /**
      * Sets up test fixtures before each test.
      * Creates mock services and injects them into the controller.
@@ -77,7 +78,8 @@ public class HomeControllerTest {
                 config,
                 globalDiversityService,
                 genreService,
-                tmdbService
+                tmdbService,
+                mediaDetailsService
 
         );
     }
