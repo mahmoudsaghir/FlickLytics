@@ -78,6 +78,7 @@ public class HomeControllerTest {
                 globalDiversityService,
                 genreService,
                 tmdbService
+
         );
     }
 

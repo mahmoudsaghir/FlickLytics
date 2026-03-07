@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import services.MediaDetailsService;
 
 /**
  * Main controller for the FlickLytics web application.
@@ -58,6 +59,8 @@ public class HomeController extends Controller {
     private final String tmdbToken;
     private final String apiUrl;
     private final int targetLanguageConstant;
+    //add final mediaDetialserivce-zenghui
+    private final MediaDetailsService mediaDetailsService;
 
     // cache for search results
     private final Map<String, JsonNode> searchCache = new ConcurrentHashMap<>();
@@ -86,7 +89,7 @@ public class HomeController extends Controller {
     public HomeController(FormFactory formFactory, MessagesApi messagesApi,
                           ClassLoaderExecutionContext clExecutionContext, Config config,
                           GlobalDiversityService globalDiversityService, GenreService genreService,
-                          TmdbService tmdbService) {
+                          TmdbService tmdbService,MediaDetailsService mediaDetailsService) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
@@ -94,6 +97,7 @@ public class HomeController extends Controller {
         this.apiUrl = config.getString("tmdb.api.url");
         this.globalDiversityService = globalDiversityService;
         this.tmdbService = tmdbService;
+        this.mediaDetailsService = mediaDetailsService;
 
         // load genres at startup to populate the genre maps
         try {
@@ -419,41 +423,26 @@ public class HomeController extends Controller {
 
         return CompletableFuture.supplyAsync(() -> {
             try {
-                String urlStr = "https://api.themoviedb.org/3/" + type + "/" + id + "?language=en-US";
-                HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-                conn.setRequestMethod("GET");
-                conn.setRequestProperty("Authorization", "Bearer " + tmdbToken);
-                conn.setRequestProperty("Accept", "application/json");
-
-                int code = conn.getResponseCode();
-                BufferedReader in = new BufferedReader(new InputStreamReader(
-                        code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream()
-                ));
-
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = in.readLine()) != null) sb.append(line);
-                in.close();
-
-                if (code < 200 || code >= 300) {
-                    return Json.newObject().put("error", "TMDb error " + code).put("body", sb.toString());
-                }
-                return Json.parse(sb.toString());
-
+                return mediaDetailsService.getDetailsWithReadability(apiUrl, tmdbToken, type, id);
             } catch (Exception e) {
-                return Json.newObject().put("error", "Failed to fetch details");
+                e.printStackTrace();
+                return null;
             }
-        }, clExecutionContext.current()).thenApply(details -> {
-            if (details.has("error")) {
-                return internalServerError(details.toString());
+        }, clExecutionContext.current()).thenApply(result -> {
+            if (result == null || result.details == null) {
+                return internalServerError("Failed to fetch details");
             }
-            String overview = details.path("overview").asText("");
-            models.Readability.ReadabilityScores scores = Readability.compute(overview);
-            return ok(views.html.details.render(type, details, overview, scores, request, messages));
+
+            return ok(views.html.details.render(
+                    type,
+                    result.details,
+                    result.overview,
+                    result.scores,
+                    request,
+                    messages
+            ));
         });
-
     }
-
 
 
 
