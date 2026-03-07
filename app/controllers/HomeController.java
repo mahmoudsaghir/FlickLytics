@@ -8,6 +8,7 @@ import forms.SearchForm;
 import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
 import models.PersonStats;
+import models.Readability;
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
@@ -36,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import models.Readability;
+
 /**
  * Main controller for the FlickLytics web application.
  * Handles HTTP requests and responses for the search functionality and person statistics pages.
@@ -144,36 +145,36 @@ public class HomeController extends Controller {
      */
     public CompletionStage<Result> personStats(String id, Http.Request request) {
         return CompletableFuture.supplyAsync(() -> {
-            try {
-                JsonNode json = tmdbService.getPersonCredits(apiUrl, tmdbToken, id);
-                List<MovieOrTVShow> allItems = new java.util.ArrayList<>();
+                    try {
+                        JsonNode json = tmdbService.getPersonCredits(apiUrl, tmdbToken, id);
+                        List<MovieOrTVShow> allItems = new java.util.ArrayList<>();
 
-                // Parse cast credits
-                JsonNode cast = json.get("cast");
-                if (cast != null && cast.isArray()) {
-                    StreamSupport.stream(cast.spliterator(), false)
-                            .map(this::parseMediaItem)
-                            .forEach(allItems::add);
-                }
+                        // Parse cast credits
+                        JsonNode cast = json.get("cast");
+                        if (cast != null && cast.isArray()) {
+                            StreamSupport.stream(cast.spliterator(), false)
+                                    .map(this::parseMediaItem)
+                                    .forEach(allItems::add);
+                        }
 
-                // Parse crew credits
-                JsonNode crew = json.get("crew");
-                if (crew != null && crew.isArray()) {
-                    StreamSupport.stream(crew.spliterator(), false)
-                            .map(this::parseMediaItem)
-                            .forEach(allItems::add);
-                }
+                        // Parse crew credits
+                        JsonNode crew = json.get("crew");
+                        if (crew != null && crew.isArray()) {
+                            StreamSupport.stream(crew.spliterator(), false)
+                                    .map(this::parseMediaItem)
+                                    .forEach(allItems::add);
+                        }
 
-                return new PersonStats(allItems);
-            } catch (Exception e) {
-                e.printStackTrace();
-                return new PersonStats(null);
-            }
-        }, clExecutionContext.current())
-        .thenApply(stats -> {
-            Messages messages = messagesApi.preferred(request);
-            return ok(views.html.personStats.render(stats, request, messages));
-        });
+                        return new PersonStats(allItems);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return new PersonStats(null);
+                    }
+                }, clExecutionContext.current())
+                .thenApply(stats -> {
+                    Messages messages = messagesApi.preferred(request);
+                    return ok(views.html.personStats.render(stats, request, messages));
+                });
     }
 
     /**
@@ -187,7 +188,7 @@ public class HomeController extends Controller {
     private MovieOrTVShow parseMediaItem(JsonNode node) {
         String itemId = node.has("id") ? node.get("id").asText() : "";
         String title = node.has("title") ? node.get("title").asText() :
-                       node.has("name") ? node.get("name").asText() : "Unknown";
+                node.has("name") ? node.get("name").asText() : "Unknown";
         double popularity = node.has("popularity") ? node.get("popularity").asDouble() : 0.0;
         double voteAverage = node.has("vote_average") ? node.get("vote_average").asDouble() : 0.0;
         int voteCount = node.has("vote_count") ? node.get("vote_count").asInt() : 0;
@@ -386,7 +387,6 @@ public class HomeController extends Controller {
                     ));
                 });
     }
-
     /**
      * An action that renders the movie details page with readability scores.
      *
@@ -447,14 +447,15 @@ public class HomeController extends Controller {
             if (details.has("error")) {
                 return internalServerError(details.toString());
             }
-
             String overview = details.path("overview").asText("");
-            Readability.ReadabilityScores scores = Readability.compute(overview);
-
+            models.Readability.ReadabilityScores scores = Readability.compute(overview);
             return ok(views.html.details.render(type, details, overview, scores, request, messages));
         });
 
     }
+
+
+
 
 
 }
