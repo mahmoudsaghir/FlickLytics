@@ -23,10 +23,6 @@ import services.GlobalDiversityService;
 import services.TmdbService;
 
 import javax.inject.Inject;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +55,7 @@ public class HomeController extends Controller {
     private final String tmdbToken;
     private final String apiUrl;
     private final int targetLanguageConstant;
-    //add final mediaDetialserivce-zenghui
+    // Service for media details and readability
     private final MediaDetailsService mediaDetailsService;
 
     // cache for search results
@@ -89,7 +85,7 @@ public class HomeController extends Controller {
     public HomeController(FormFactory formFactory, MessagesApi messagesApi,
                           ClassLoaderExecutionContext clExecutionContext, Config config,
                           GlobalDiversityService globalDiversityService, GenreService genreService,
-                          TmdbService tmdbService,MediaDetailsService mediaDetailsService) {
+                          TmdbService tmdbService, MediaDetailsService mediaDetailsService) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
