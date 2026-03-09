@@ -21,8 +21,7 @@ javacOptions ++= Seq(
   "-encoding", "UTF-8",
   "-parameters",
   "-Xlint:unchecked",
-  "-Xlint:deprecation",
-  "--release", "17"
+  "-Xlint:deprecation"
 )
 
 // Javadoc settings: include private members and suppress doclint warnings
