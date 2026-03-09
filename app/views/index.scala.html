@@ -125,7 +125,8 @@
                                                                         Global Diversity
                                                                     </a>
 
-                                                                    <a href=""
+                                                                    <a href="@routes.HomeController.reviews(category,
+                                                                       (result \ "id").asOpt[Int].getOrElse(0).toLong)"
                                                                        class="btn btn-outline-secondary btn-sm">
                                                                         Reviews
                                                                     </a>

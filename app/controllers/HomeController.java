@@ -9,6 +9,7 @@ import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
 import models.PersonStats;
 import models.Readability;
+import models.ReviewsSummary;
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
@@ -20,6 +21,7 @@ import play.mvc.Http;
 import play.mvc.Result;
 import services.GenreService;
 import services.GlobalDiversityService;
+import services.ReviewsService;
 import services.TmdbService;
 
 import javax.inject.Inject;
@@ -46,6 +48,7 @@ import services.MediaDetailsService;
  * @author Syed Shahab Shah
  * @author Mahmoud Saghir
  * @author Zenghui WU
+ * @author Tasmia Naomi
  */
 public class HomeController extends Controller {
 
@@ -57,6 +60,8 @@ public class HomeController extends Controller {
     private final int targetLanguageConstant;
     // Service for media details and readability
     private final MediaDetailsService mediaDetailsService;
+    // Service for reviews and sentiment analysis
+    private final ReviewsService reviewsService;
 
     // cache for search results
     private final Map<String, JsonNode> searchCache = new ConcurrentHashMap<>();
@@ -79,13 +84,16 @@ public class HomeController extends Controller {
      * @param globalDiversityService The Global Diversity service
      * @param genreService The Genre service for loading genre maps
      * @param tmdbService The TMDb service for API communication
+     * @param mediaDetailsService The Media Details service for readability calculations
+     * @param reviewsService The Reviews service for sentiment analysis
      * @author Mahmoud Saghir
      */
     @Inject
     public HomeController(FormFactory formFactory, MessagesApi messagesApi,
                           ClassLoaderExecutionContext clExecutionContext, Config config,
                           GlobalDiversityService globalDiversityService, GenreService genreService,
-                          TmdbService tmdbService, MediaDetailsService mediaDetailsService) {
+                          TmdbService tmdbService, MediaDetailsService mediaDetailsService,
+                          ReviewsService reviewsService) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
@@ -94,6 +102,7 @@ public class HomeController extends Controller {
         this.globalDiversityService = globalDiversityService;
         this.tmdbService = tmdbService;
         this.mediaDetailsService = mediaDetailsService;
+        this.reviewsService = reviewsService;
 
         // load genres at startup to populate the genre maps
         try {
@@ -138,20 +147,24 @@ public class HomeController extends Controller {
      * @param id The unique identifier of the movie
      * @return A promise to render the information for the financial performance page, or an error if fetching fails
      * @author Charles Wang
+     * @author Tasmia Naomi
      */
-
-    public Result financialPerformance(Http.Request request, Integer id) {
+    public CompletionStage<Result> financialPerformance(Http.Request request, Integer id) {
         Messages messages = messagesApi.preferred(request);
 
-        try {
-            // Fetch movie details only
-            JsonNode details = tmdbService.getDetails(apiUrl, tmdbToken, "movie", id.longValue());
-
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return tmdbService.getDetails(apiUrl, tmdbToken, "movie", id.longValue());
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        }, clExecutionContext.current()).thenApply(details -> {
+            if (details == null) {
+                return internalServerError("Failed to fetch movie financial data");
+            }
             return ok(views.html.financialPerformance.render(details, request, messages));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return internalServerError("Failed to fetch movie financial data");
-        }
+        });
     }
 
     /**
@@ -463,7 +476,41 @@ public class HomeController extends Controller {
         });
     }
 
+    /**
+     * An action that renders the reviews page with sentiment analysis for a given media item.
+     * Fetches up to 50 reviews from the TMDb API and performs sentiment analysis on each.
+     * Displays aggregated sentiment statistics and individual review details.
+     *
+     * @param type The media type ("movie" or "tv")
+     * @param id The TMDb media ID
+     * @param request The HTTP request object
+     * @return A CompletionStage rendering the reviews page with sentiment analysis
+     * @author Tasmia Naomi
+     */
+    public CompletionStage<Result> reviews(String type, Long id, Http.Request request) {
+        Messages messages = messagesApi.preferred(request);
 
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return reviewsService.getReviewsWithSentiment(apiUrl, tmdbToken, type, id);
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        }, clExecutionContext.current()).thenApply(reviewsSummary -> {
+            if (reviewsSummary == null) {
+                return internalServerError("Failed to fetch reviews");
+            }
+
+            return ok(views.html.reviews.render(
+                    type,
+                    id,
+                    reviewsSummary,
+                    request,
+                    messages
+            ));
+        });
+    }
 
 
 }
