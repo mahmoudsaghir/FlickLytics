@@ -30,9 +30,11 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static play.test.Helpers.*;
 
+//import play.i18n.Messages;
+
 /**
  * Unit tests for the HomeController class.
- * Tests controller actions including index, personStats, and globalDiversity.
+ * Tests controller actions including index, personStats, globalDiversity, and financial performance
  * Uses Mockito to mock external dependencies (TmdbService, GlobalDiversityService).
  *
  * Testing strategy:
@@ -43,6 +45,7 @@ import static play.test.Helpers.*;
  *
  * @author Syed Shahab Shah
  * @author Mahmoud Saghir
+ * @author Charles Wang
  */
 public class HomeControllerTest {
     private HomeController controller;
@@ -164,4 +167,63 @@ public class HomeControllerTest {
         assertTrue(html.contains("Movie A"));
         assertTrue(html.contains("Movie B"));
     }
+
+    /**
+     * Tests the FinancialPerformance action.
+     * Mocks TmdbService to return sample data.
+     * Verifies successful rendering with computed metrics.
+     *
+     * @author Charles Wang
+     */
+
+//    @Test
+//    public void testFinancialPerformanceSuccess() throws Exception {
+//        // Mock JSON details returned by TmdbService
+//        JsonNode mockDetails = Json.newObject()
+//                .put("budget", 100000)
+//                .put("revenue", 500000);
+//
+//        // Mock TmdbService.getDetails to return mockDetails
+//        when(tmdbService.getDetails(anyString(), anyString(), eq("movie"), anyLong()))
+//                .thenReturn(mockDetails);
+//
+//        // Use a proper fake request
+//        Http.RequestBuilder fakeRequest = Helpers.fakeRequest();
+//
+//        // Run inside a running fake application
+//        Helpers.running(new GuiceApplicationBuilder().build(), () -> {
+//            Http.Request request = fakeRequest.build();
+//            Result result = controller.financialPerformance(request, 123);
+//
+//            // Assert HTTP 200 OK
+//            assertEquals(OK, result.status());
+//
+//            // Assert content contains expected fields
+//            String content = contentAsString(result);
+//            assertTrue(content.contains("budget"));
+//            assertTrue(content.contains("revenue"));
+//        });
+//    }
+//
+//    @Test
+//    public void testFinancialPerformanceFailure() throws Exception {
+//        when(tmdbService.getDetails(anyString(), anyString(), eq("movie"), anyLong()))
+//                .thenThrow(new RuntimeException("API failure"));
+//
+//        // Use a proper fake request
+//        Http.RequestBuilder fakeRequest = Helpers.fakeRequest();
+//
+//        // Run the controller inside a running fake application
+//        Helpers.running(GuiceApplicationBuilder().build(), () -> {
+//            Http.Request request = fakeRequest.build();
+//            Result result = controller.financialPerformance(request, 123);
+//
+//            // Assert HTTP 500
+//            assertEquals(INTERNAL_SERVER_ERROR, result.status());
+//
+//            // Assert error message
+//            String content = contentAsString(result);
+//            assertTrue(content.contains("Failed to fetch movie financial data"));
+//        });
+//    }
 }

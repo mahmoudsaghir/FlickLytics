@@ -18,3 +18,7 @@ GET         /flicklytics/assets/*file        controllers.Assets.versioned(path="
 # Map details for checking items under /flicklytics
 GET   /flicklytics/movie/:id   controllers.HomeController.movie(id: Long, request: Request)
 GET   /flicklytics/tv/:id      controllers.HomeController.tv(id: Long, request: Request)
+
+# Map details for items under /financial-performance for a specific movie by ID
+GET   /flicklytics/financial-performance/:id        controllers.HomeController.financialPerformance(request: Request, id: Int)
+
