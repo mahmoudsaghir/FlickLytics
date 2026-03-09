@@ -1,110 +1,125 @@
-@import scala.jdk.CollectionConverters._
+
 @(itemType: String, details: com.fasterxml.jackson.databind.JsonNode, overview: String,
-scores: models.Readability.ReadabilityScores,
-request: play.mvc.Http.Request, messages: play.i18n.Messages)
+        scores: models.Readability.ReadabilityScores,
+        request: play.mvc.Http.Request, messages: play.i18n.Messages)
 
 @main("Details") {
-<h1>
-    @if(itemType == "movie") {
-    <h3>Movie Details</h3>
-    <ul>
-        <li>Release date: @details.path("release_date").asText("")</li>
-        <li>Runtime (min): @details.path("runtime").asInt(0)</li>
-        <li>Popularity: @details.path("popularity").asDouble(0.0)</li>
-        <li>Status: @details.path("status").asText("")</li>
-        <li>Tagline: @details.path("tagline").asText("")</li>
-        <li>Original language: @details.path("original_language").asText("")</li>
-        <li>Vote average: @details.path("vote_average").asDouble(0.0)</li>
-        <li>Vote count: @details.path("vote_count").asInt(0)</li>
+    <div class="container mt-4">
+        @* --- Page Header --- *@
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div>
+                @if(itemType == "movie") {
+                    <h1>Movie Details</h1>
+                } else{
+                    <h1>TV Show Details</h1>
+                }
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <button type="button" class="btn-back" onclick="window.history.back()">
+                        &#8592; Back to Search
+                </button>
+            </div>
+        </div>
+        @if(itemType == "movie") {
+            <ul>
+                <li>Release date: @details.path("release_date").asText("")</li>
+                <li>Runtime (min): @details.path("runtime").asInt(0)</li>
+                <li>Popularity: @details.path("popularity").asDouble(0.0)</li>
+                <li>Status: @details.path("status").asText("")</li>
+                <li>Tagline: @details.path("tagline").asText("")</li>
+                <li>Original language: @details.path("original_language").asText("")</li>
+                <li>Vote average: @details.path("vote_average").asDouble(0.0)</li>
+                <li>Vote count: @details.path("vote_count").asInt(0)</li>
 
-        <li>Homepage:
-            @defining(details.path("homepage").asText("")) { hp =>
-            @if(hp != "") { <a href="@hp" target="_blank">@hp</a> } else { N/A }
-            }
-        </li>
+                <li>Homepage:
+                    @defining(details.path("homepage").asText("")) { hp =>
+                        @if(hp != "") {
+                            <a href="@hp" target="_blank">@hp</a>
+                        } else { N/A }
+                    }
+                </li>
 
-        <li>Genres:
-            @defining(details.path("genres")) { gs =>
-            @if(gs.isArray) {
-            @for(g <- gs.elements().asScala) {
-            @g.path("name").asText("")&nbsp;
-            }
-            } else { N/A }
-            }
-        </li>
+                <li>Genres:
+                    @defining(details.path("genres")) { gs =>
+                        @if(gs.isArray) {
+                            @for(g <- gs.elements().asScala) {
+                                @g.path("name").asText("")&nbsp;
+                            }
+                        } else { N/A }
+                }
+                </li>
 
-        <li>Production companies:
-            @defining(details.path("production_companies")) { pcs =>
-            @if(pcs.isArray) {
-            @for(c <- pcs.elements().asScala) {
-            @c.path("name").asText("")&nbsp;
-            }
-            } else { N/A }
-            }
-        </li>
-    </ul>
+                <li>Production companies:
+                    @defining(details.path("production_companies")) { pcs =>
+                        @if(pcs.isArray) {
+                            @for(c <- pcs.elements().asScala) {
+                                @c.path("name").asText("")&nbsp;
+                            }
+                        } else { N/A }
+                }
+                </li>
+            </ul>
 
-    @defining(details.path("poster_path").asText("")) { p =>
-    @if(p != "") {
-    <img src="https://image.tmdb.org/t/p/w500@p" alt="poster" style="max-width:220px;">
-    }
-    }
-    }
-    @if(itemType == "tv") {
-    <h3>TV Details</h3>
-    <ul>
-        <li>First air date: @details.path("first_air_date").asText("")</li>
-        <li>Last air date: @details.path("last_air_date").asText("")</li>
-        <li>Popularity: @details.path("popularity").asDouble(0.0)</li>
-        <li>Status: @details.path("status").asText("")</li>
-        <li>Tagline: @details.path("tagline").asText("")</li>
-        <li>Type: @details.path("type").asText("")</li>
-        <li>Vote average: @details.path("vote_average").asDouble(0.0)</li>
-        <li>Vote count: @details.path("vote_count").asInt(0)</li>
-        <li>Number of seasons: @details.path("number_of_seasons").asInt(0)</li>
-        <li>Number of episodes: @details.path("number_of_episodes").asInt(0)</li>
-        <li>Homepage:
-            @defining(details.path("homepage").asText("")) { hp =>
-            @if(hp != "") { <a href="@hp" target="_blank">@hp</a> } else { N/A }
+            @defining(details.path("poster_path").asText("")) { p =>
+                @if(p != "") {
+                    <img src="https://image.tmdb.org/t/p/w500@p" alt="poster" style="max-width : 220 px ;">
+                }
             }
-        </li>
-        <li>Genres:
-            @defining(details.path("genres")) { gs =>
-            @if(gs.isArray) {
-            @for(g <- gs.elements().asScala) {
-            @g.path("name").asText("")&nbsp;
-            }
-            } else { N/A }
-            }
-        </li>
-        <li>Networks:
-            @defining(details.path("networks")) { ns =>
-            @if(ns.isArray) {
-            @for(n <- ns.elements().asScala) {
-            @n.path("name").asText("")&nbsp;
-            }
-            } else { N/A }
-            }
-        </li>
-    </ul>
+        }
+        @if(itemType == "tv") {
+            <ul>
+                <li>First air date: @details.path("first_air_date").asText("")</li>
+                <li>Last air date: @details.path("last_air_date").asText("")</li>
+                <li>Popularity: @details.path("popularity").asDouble(0.0)</li>
+                <li>Status: @details.path("status").asText("")</li>
+                <li>Tagline: @details.path("tagline").asText("")</li>
+                <li>Type: @details.path("type").asText("")</li>
+                <li>Vote average: @details.path("vote_average").asDouble(0.0)</li>
+                <li>Vote count: @details.path("vote_count").asInt(0)</li>
+                <li>Number of seasons: @details.path("number_of_seasons").asInt(0)</li>
+                <li>Number of episodes: @details.path("number_of_episodes").asInt(0)</li>
+                <li>Homepage:
+                    @defining(details.path("homepage").asText("")) { hp =>
+                        @if(hp != "") {
+                            <a href="@hp" target="_blank">@hp</a>
+                        } else { N/A }
+                    }
+                </li>
+                <li>Genres:
+                    @defining(details.path("genres")) { gs =>
+                        @if(gs.isArray) {
+                            @for(g <- gs.elements().asScala) {
+                                @g.path("name").asText("")&nbsp;
+                            }
+                        } else { N/A }
+                }
+                </li>
+                <li>Networks:
+                    @defining(details.path("networks")) { ns =>
+                        @if(ns.isArray) {
+                            @for(n <- ns.elements().asScala) {
+                                @n.path("name").asText("")&nbsp;
+                            }
+                        } else { N/A }
+                }
+                </li>
+            </ul>
 
-    @defining(details.path("poster_path").asText("")) { p =>
-    @if(p != "") {
-    <img src="https://image.tmdb.org/t/p/w500@p" alt="poster" style="max-width:220px;">
-    }
-    }
-    }
-</h1>
+            @defining(details.path("poster_path").asText("")) { p =>
+                @if(p != "") {
+                    <img src="https://image.tmdb.org/t/p/w500@p" alt="poster" style="max-width : 220 px ;">
+                    }
+            }
+        }
 
-<h3>Overview</h3>
-<p>@overview</p>
+        <h3>Overview</h3>
+        <p>@overview</p>
 
-<h3>Readability</h3>
-<ul>
-    <li>Flesch Reading Ease: <b>@scores.fleschReadingEase</b></li>
-    <li>Flesch–Kincaid Grade Level: <b>@scores.fleschKincaidGrade</b></li>
-    <li>Sentences: @scores.sentences, Words: @scores.words, Syllables: @scores.syllables</li>
-</ul>
-
-<p><a href="/flicklytics">Back</a></p>
+        <h3>Readability</h3>
+        <ul>
+            <li>Flesch Reading Ease: <b>@scores.fleschReadingEase</b></li>
+            <li>Flesch–Kincaid Grade Level: <b>@scores.fleschKincaidGrade</b></li>
+            <li>Sentences: @scores.sentences, Words: @scores.words, Syllables: @scores.syllables</li>
+        </ul>
+    </div>
 }
