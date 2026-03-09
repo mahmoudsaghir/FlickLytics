@@ -1,7 +1,6 @@
 @(category: String, id: Int, mediaName: String, translationDensity: Double, localizationIndex: Double)(implicit request: Http.Request, messages: MessagesProvider)
 
 @main("Global Diversity") {
-    <div class="main-page">
         <div class="container mt-4">
             @* --- Page Header --- *@
             <div class="page-header d-flex justify-content-between align-items-center">
@@ -27,5 +26,4 @@
                 <p><strong>Localization Index:</strong> @localizationIndex</p>
             </div>
         </div>
-    </div>
 }
