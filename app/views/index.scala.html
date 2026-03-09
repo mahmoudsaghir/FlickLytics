@@ -130,10 +130,14 @@
                                                                         Reviews
                                                                     </a>
 
-                                                                    <a href=""
-                                                                       class="btn btn-outline-success btn-sm">
-                                                                        Financial Performance
+                                                                    @if(category == "movie") {
+                                                                    @defining((result \ "id").asOpt[Int].getOrElse(0)) { id =>
+                                                                    <a href="@routes.HomeController.financialPerformance(id)"
+                                                                    class="btn btn-outline-success btn-sm">
+                                                                    Financial Performance
                                                                     </a>
+                                                                    }
+                                                                    }
                                                                 </div>
                                                             </div>
 

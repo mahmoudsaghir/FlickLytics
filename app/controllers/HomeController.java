@@ -132,6 +132,29 @@ public class HomeController extends Controller {
     }
 
     /**
+     * An action that renders financial data.
+     *
+     * @param request The HTTP request
+     * @param id The unique identifier of the movie
+     * @return A promise to render the information for the financial performance page, or an error if fetching fails
+     * @author Charles Wang
+     */
+
+    public Result financialPerformance(Http.Request request, Integer id) {
+        Messages messages = messagesApi.preferred(request);
+
+        try {
+            // Fetch movie details only
+            JsonNode details = tmdbService.getDetails(apiUrl, tmdbToken, "movie", id.longValue());
+
+            return ok(views.html.financialPerformance.render(details, request, messages));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return internalServerError("Failed to fetch movie financial data");
+        }
+    }
+
+    /**
      * Handles GET requests to display a person's "known for" items and statistics.
      * Retrieves data asynchronously from the TMDb API and displays comprehensive statistics.
      *
