@@ -22,3 +22,5 @@ GET   /flicklytics/tv/:id      controllers.HomeController.tv(id: Long, request: 
 # Map details for items under /financial-performance for a specific movie by ID
 GET   /flicklytics/financial-performance/:id        controllers.HomeController.financialPerformance(request: Request, id: Int)
 
+# Map reviews and sentiment analysis for movies and TV shows
+GET   /flicklytics/reviews/:type/:id   controllers.HomeController.reviews(type: String, id: Long, request: Request)

@@ -82,4 +82,51 @@ public class TmdbService {
 
         return 1;
     }
+
+    /**
+     * Fetches reviews for a movie or TV show, paginating up to 3 pages
+     * to collect up to 60 raw results (the service layer will limit to 50).
+     * TMDb returns 20 reviews per page, so 3 pages are needed for up to 50 reviews.
+     *
+     * @param apiUrl The TMDb API base URL
+     * @param token Bearer token for authorization
+     * @param type The media type ("movie" or "tv")
+     * @param id The TMDb media ID
+     * @return JsonNode containing a merged "results" array from up to 3 pages
+     * @throws Exception if the API request fails
+     * @author Tasmia Naomi
+     */
+    public JsonNode getReviews(String apiUrl, String token, String type, Long id) throws Exception {
+        String baseUrl = apiUrl + type + "/" + id + "/reviews";
+
+        // Fetch the first page
+        JsonNode firstPage = Utils.sendGetRequest(baseUrl + "?page=1", token);
+        int totalPages = firstPage.path("total_pages").asInt(1);
+
+        // If only 1 page, return as-is
+        if (totalPages <= 1) {
+            return firstPage;
+        }
+
+        // Merge results from up to 3 pages
+        com.fasterxml.jackson.databind.node.ArrayNode mergedResults = play.libs.Json.newArray();
+        for (com.fasterxml.jackson.databind.JsonNode item : firstPage.path("results")) {
+            mergedResults.add(item);
+        }
+
+        int pagesToFetch = Math.min(totalPages, 3);
+        for (int page = 2; page <= pagesToFetch; page++) {
+            JsonNode nextPage = Utils.sendGetRequest(baseUrl + "?page=" + page, token);
+            for (com.fasterxml.jackson.databind.JsonNode item : nextPage.path("results")) {
+                mergedResults.add(item);
+            }
+        }
+
+        // Build a merged response node
+        com.fasterxml.jackson.databind.node.ObjectNode merged = play.libs.Json.newObject();
+        merged.set("results", mergedResults);
+        merged.put("total_results", firstPage.path("total_results").asInt(0));
+        merged.put("total_pages", totalPages);
+        return merged;
+    }
 }

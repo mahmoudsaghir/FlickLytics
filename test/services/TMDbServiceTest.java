@@ -1,13 +1,18 @@
 package services;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import models.MovieOrTVShow;
 import models.PersonStats;
+import models.Utils;
 import org.junit.Test;
+import org.mockito.MockedStatic;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for the PersonStats model class.
@@ -291,5 +296,87 @@ public class TMDbServiceTest {
         assertEquals(26.67, stats.getPopAvg(), 0.1);
         assertEquals(5.33, stats.getVoteAvg(), 0.1);
         assertEquals(2516.67, stats.getCountAvg(), 1.0);
+    }
+
+    /**
+     * Tests getReviews with a single page of results.
+     * Mocks Utils.sendGetRequest to return a single page response.
+     *
+     * @author Tasmia Naomi
+     */
+    @Test
+    public void testGetReviewsSinglePage() throws Exception {
+        TmdbService tmdbService = new TmdbService();
+        String jsonResponse = "{\"results\": [{\"author\": \"John\", \"content\": \"Great!\"}], \"total_pages\": 1, \"total_results\": 1}";
+        JsonNode mockNode = play.libs.Json.parse(jsonResponse);
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(contains("/reviews?page=1"), anyString()))
+                    .thenReturn(mockNode);
+
+            JsonNode result = tmdbService.getReviews("http://api.tmdb.org/3/", "token", "movie", 123L);
+            assertNotNull(result);
+            assertTrue(result.has("results"));
+            assertEquals(1, result.path("results").size());
+            assertEquals("John", result.path("results").get(0).path("author").asText());
+        }
+    }
+
+    /**
+     * Tests getReviews with multiple pages (3 pages).
+     * Verifies results from all pages are merged.
+     *
+     * @author Tasmia Naomi
+     */
+    @Test
+    public void testGetReviewsMultiplePages() throws Exception {
+        TmdbService tmdbService = new TmdbService();
+        String page1 = "{\"results\": [{\"author\": \"A1\", \"content\": \"P1\"}], \"total_pages\": 3, \"total_results\": 3}";
+        String page2 = "{\"results\": [{\"author\": \"A2\", \"content\": \"P2\"}], \"total_pages\": 3, \"total_results\": 3}";
+        String page3 = "{\"results\": [{\"author\": \"A3\", \"content\": \"P3\"}], \"total_pages\": 3, \"total_results\": 3}";
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(contains("page=1"), anyString()))
+                    .thenReturn(play.libs.Json.parse(page1));
+            mockedUtils.when(() -> Utils.sendGetRequest(contains("page=2"), anyString()))
+                    .thenReturn(play.libs.Json.parse(page2));
+            mockedUtils.when(() -> Utils.sendGetRequest(contains("page=3"), anyString()))
+                    .thenReturn(play.libs.Json.parse(page3));
+
+            JsonNode result = tmdbService.getReviews("http://api.tmdb.org/3/", "token", "movie", 456L);
+            assertNotNull(result);
+            assertEquals(3, result.path("results").size());
+            assertEquals("A1", result.path("results").get(0).path("author").asText());
+            assertEquals("A2", result.path("results").get(1).path("author").asText());
+            assertEquals("A3", result.path("results").get(2).path("author").asText());
+        }
+    }
+
+    /**
+     * Tests getReviews caps pagination at 3 pages even if more exist.
+     *
+     * @author Tasmia Naomi
+     */
+    @Test
+    public void testGetReviewsCapsAtThreePages() throws Exception {
+        TmdbService tmdbService = new TmdbService();
+        String page1 = "{\"results\": [{\"author\": \"A1\"}], \"total_pages\": 5, \"total_results\": 100}";
+        String page2 = "{\"results\": [{\"author\": \"A2\"}], \"total_pages\": 5, \"total_results\": 100}";
+        String page3 = "{\"results\": [{\"author\": \"A3\"}], \"total_pages\": 5, \"total_results\": 100}";
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(contains("page=1"), anyString()))
+                    .thenReturn(play.libs.Json.parse(page1));
+            mockedUtils.when(() -> Utils.sendGetRequest(contains("page=2"), anyString()))
+                    .thenReturn(play.libs.Json.parse(page2));
+            mockedUtils.when(() -> Utils.sendGetRequest(contains("page=3"), anyString()))
+                    .thenReturn(play.libs.Json.parse(page3));
+
+            JsonNode result = tmdbService.getReviews("http://api.tmdb.org/3/", "token", "movie", 789L);
+            assertNotNull(result);
+            assertEquals(3, result.path("results").size());
+            mockedUtils.verify(() -> Utils.sendGetRequest(contains("page=4"), anyString()), never());
+            mockedUtils.verify(() -> Utils.sendGetRequest(contains("page=5"), anyString()), never());
+        }
     }
 }

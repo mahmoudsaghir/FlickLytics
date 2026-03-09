@@ -23,3 +23,12 @@ javacOptions ++= Seq(
   "-Xlint:unchecked",
   "-Xlint:deprecation"
 )
+
+// Javadoc settings: include private members and suppress doclint warnings
+Compile / doc / javacOptions ++= Seq(
+  "-private",
+  "-Xdoclint:none",
+  "-windowtitle", "FlickLytics API Documentation",
+  "-doctitle", "FlickLytics - TMDb Movie/TV Analytics"
+)
+

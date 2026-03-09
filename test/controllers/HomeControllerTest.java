@@ -5,6 +5,8 @@ import com.typesafe.config.Config;
 import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
 import models.PersonStats;
+import models.Review;
+import models.ReviewsSummary;
 import org.junit.Before;
 import org.junit.Test;
 import play.Application;
@@ -19,6 +21,7 @@ import play.test.Helpers;
 import services.GenreService;
 import services.GlobalDiversityService;
 import services.MediaDetailsService;
+import services.ReviewsService;
 import services.TmdbService;
 
 import java.util.ArrayList;
@@ -30,28 +33,23 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static play.test.Helpers.*;
 
-//import play.i18n.Messages;
-
 /**
  * Unit tests for the HomeController class.
- * Tests controller actions including index, personStats, globalDiversity, and financial performance
- * Uses Mockito to mock external dependencies (TmdbService, GlobalDiversityService).
- *
- * Testing strategy:
- * - Index action: Tests rendering of empty form
- * - Person stats action: Tests API retrieval and error handling
- * - Global diversity action: Tests computation and rendering
- * - Service mocking: Verifies proper asynchronous handling
+ * Tests controller actions including index, personStats, globalDiversity,
+ * financial performance, and reviews.
+ * Uses Mockito to mock external dependencies (TmdbService, GlobalDiversityService, ReviewsService).
  *
  * @author Syed Shahab Shah
  * @author Mahmoud Saghir
  * @author Charles Wang
+ * @author Tasmia Naomi
  */
 public class HomeControllerTest {
     private HomeController controller;
     private TmdbService tmdbService;
     private GlobalDiversityService globalDiversityService;
     private MediaDetailsService mediaDetailsService;
+    private ReviewsService reviewsService;
     /**
      * Sets up test fixtures before each test.
      * Creates mock services and injects them into the controller.
@@ -63,6 +61,8 @@ public class HomeControllerTest {
     public void setUp() {
         tmdbService = mock(TmdbService.class);
         globalDiversityService = mock(GlobalDiversityService.class);
+        mediaDetailsService = mock(MediaDetailsService.class);
+        reviewsService = mock(ReviewsService.class);
         GenreService genreService = mock(GenreService.class);
         Config config = mock(Config.class);
 
@@ -82,8 +82,8 @@ public class HomeControllerTest {
                 globalDiversityService,
                 genreService,
                 tmdbService,
-                mediaDetailsService
-
+                mediaDetailsService,
+                reviewsService
         );
     }
 
@@ -169,61 +169,156 @@ public class HomeControllerTest {
     }
 
     /**
-     * Tests the FinancialPerformance action.
-     * Mocks TmdbService to return sample data.
-     * Verifies successful rendering with computed metrics.
+     * Tests the financialPerformance action with a successful API response.
+     * Mocks TmdbService to return budget and revenue data.
      *
      * @author Charles Wang
+     * @author Tasmia Naomi
      */
+    @Test
+    public void testFinancialPerformanceSuccess() throws Exception {
+        JsonNode mockDetails = Json.newObject()
+                .put("budget", 100000)
+                .put("revenue", 500000);
 
-//    @Test
-//    public void testFinancialPerformanceSuccess() throws Exception {
-//        // Mock JSON details returned by TmdbService
-//        JsonNode mockDetails = Json.newObject()
-//                .put("budget", 100000)
-//                .put("revenue", 500000);
-//
-//        // Mock TmdbService.getDetails to return mockDetails
-//        when(tmdbService.getDetails(anyString(), anyString(), eq("movie"), anyLong()))
-//                .thenReturn(mockDetails);
-//
-//        // Use a proper fake request
-//        Http.RequestBuilder fakeRequest = Helpers.fakeRequest();
-//
-//        // Run inside a running fake application
-//        Helpers.running(new GuiceApplicationBuilder().build(), () -> {
-//            Http.Request request = fakeRequest.build();
-//            Result result = controller.financialPerformance(request, 123);
-//
-//            // Assert HTTP 200 OK
-//            assertEquals(OK, result.status());
-//
-//            // Assert content contains expected fields
-//            String content = contentAsString(result);
-//            assertTrue(content.contains("budget"));
-//            assertTrue(content.contains("revenue"));
-//        });
-//    }
-//
-//    @Test
-//    public void testFinancialPerformanceFailure() throws Exception {
-//        when(tmdbService.getDetails(anyString(), anyString(), eq("movie"), anyLong()))
-//                .thenThrow(new RuntimeException("API failure"));
-//
-//        // Use a proper fake request
-//        Http.RequestBuilder fakeRequest = Helpers.fakeRequest();
-//
-//        // Run the controller inside a running fake application
-//        Helpers.running(GuiceApplicationBuilder().build(), () -> {
-//            Http.Request request = fakeRequest.build();
-//            Result result = controller.financialPerformance(request, 123);
-//
-//            // Assert HTTP 500
-//            assertEquals(INTERNAL_SERVER_ERROR, result.status());
-//
-//            // Assert error message
-//            String content = contentAsString(result);
-//            assertTrue(content.contains("Failed to fetch movie financial data"));
-//        });
-//    }
+        when(tmdbService.getDetails(anyString(), anyString(), eq("movie"), eq(123L)))
+                .thenReturn(mockDetails);
+
+        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/flicklytics/financial-performance/123");
+        Http.Request request = requestBuilder.build();
+
+        CompletionStage<Result> resultStage = controller.financialPerformance(request, 123);
+        Result result = resultStage.toCompletableFuture().join();
+
+        assertEquals(OK, result.status());
+        String content = contentAsString(result);
+        assertTrue(content.contains("Financial Performance"));
+    }
+
+    /**
+     * Tests the financialPerformance action when the API fails.
+     * Should return an internal server error response.
+     *
+     * @author Charles Wang
+     * @author Tasmia Naomi
+     */
+    @Test
+    public void testFinancialPerformanceFailure() throws Exception {
+        when(tmdbService.getDetails(anyString(), anyString(), eq("movie"), eq(999L)))
+                .thenThrow(new RuntimeException("API failure"));
+
+        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/flicklytics/financial-performance/999");
+        Http.Request request = requestBuilder.build();
+
+        CompletionStage<Result> resultStage = controller.financialPerformance(request, 999);
+        Result result = resultStage.toCompletableFuture().join();
+
+        assertEquals(INTERNAL_SERVER_ERROR, result.status());
+        String content = contentAsString(result);
+        assertTrue(content.contains("Failed to fetch movie financial data"));
+    }
+
+    /**
+     * Tests the reviews action with a successful API response.
+     * Mocks ReviewsService to return a ReviewsSummary with happy reviews.
+     *
+     * @author Tasmia Naomi
+     */
+    @Test
+    public void testReviewsActionSuccess() throws Exception {
+        List<Review> reviews = new ArrayList<>();
+        reviews.add(new Review("John", "Amazing and wonderful movie!", ":-)", 100.0, 0.0));
+        reviews.add(new Review("Jane", "Excellent and fantastic film!", ":-)", 100.0, 0.0));
+        ReviewsSummary mockSummary = new ReviewsSummary(reviews);
+
+        when(reviewsService.getReviewsWithSentiment(anyString(), anyString(), eq("movie"), eq(123L)))
+                .thenReturn(mockSummary);
+
+        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/flicklytics/reviews/movie/123");
+        Http.Request request = requestBuilder.build();
+
+        CompletionStage<Result> resultStage = controller.reviews("movie", 123L, request);
+        Result result = resultStage.toCompletableFuture().join();
+
+        assertEquals(OK, result.status());
+        String html = contentAsString(result);
+        assertTrue(html.contains("Reviews"));
+        assertTrue(html.contains("John"));
+        assertTrue(html.contains("Jane"));
+        assertTrue(html.contains(":-)"));
+    }
+
+    /**
+     * Tests the reviews action when the ReviewsService throws an exception.
+     * Should return an internal server error response.
+     *
+     * @author Tasmia Naomi
+     */
+    @Test
+    public void testReviewsActionFailure() throws Exception {
+        when(reviewsService.getReviewsWithSentiment(anyString(), anyString(), eq("movie"), eq(999L)))
+                .thenThrow(new RuntimeException("API failure"));
+
+        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/flicklytics/reviews/movie/999");
+        Http.Request request = requestBuilder.build();
+
+        CompletionStage<Result> resultStage = controller.reviews("movie", 999L, request);
+        Result result = resultStage.toCompletableFuture().join();
+
+        assertEquals(INTERNAL_SERVER_ERROR, result.status());
+    }
+
+    /**
+     * Tests the reviews action for TV shows.
+     * Verifies the controller handles TV show reviews correctly.
+     *
+     * @author Tasmia Naomi
+     */
+    @Test
+    public void testReviewsActionForTvShow() throws Exception {
+        List<Review> reviews = new ArrayList<>();
+        reviews.add(new Review("Reviewer1", "Terrible and awful show.", ":-(", 0.0, 100.0));
+        ReviewsSummary mockSummary = new ReviewsSummary(reviews);
+
+        when(reviewsService.getReviewsWithSentiment(anyString(), anyString(), eq("tv"), eq(456L)))
+                .thenReturn(mockSummary);
+
+        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/flicklytics/reviews/tv/456");
+        Http.Request request = requestBuilder.build();
+
+        CompletionStage<Result> resultStage = controller.reviews("tv", 456L, request);
+        Result result = resultStage.toCompletableFuture().join();
+
+        assertEquals(OK, result.status());
+        String html = contentAsString(result);
+        assertTrue(html.contains("Reviews"));
+        assertTrue(html.contains("Reviewer1"));
+        assertTrue(html.contains(":-("));
+    }
+
+    /**
+     * Tests the reviews action with empty reviews.
+     * Should render the reviews page with "No reviews found" message.
+     *
+     * @author Tasmia Naomi
+     */
+    @Test
+    public void testReviewsActionWithEmptyReviews() throws Exception {
+        List<Review> reviews = new ArrayList<>();
+        ReviewsSummary mockSummary = new ReviewsSummary(reviews);
+
+        when(reviewsService.getReviewsWithSentiment(anyString(), anyString(), eq("movie"), eq(789L)))
+                .thenReturn(mockSummary);
+
+        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/flicklytics/reviews/movie/789");
+        Http.Request request = requestBuilder.build();
+
+        CompletionStage<Result> resultStage = controller.reviews("movie", 789L, request);
+        Result result = resultStage.toCompletableFuture().join();
+
+        assertEquals(OK, result.status());
+        String html = contentAsString(result);
+        assertTrue(html.contains("No reviews found"));
+    }
 }
+
