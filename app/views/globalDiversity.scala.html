@@ -14,16 +14,52 @@
                 </div>
             </div>
 
-            <div class="card shadow-sm p-4 mt-3">
-                <p><strong>ID:</strong> @id</p>
-                <p><strong>Name:</strong> @mediaName</p>
-                <p><strong>Category:</strong> @category.capitalize</p>
+            <div class="row mt-3 g-3">
 
-                <hr>
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h4 class="card-title mb-3">Details</h4>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>ID</th>
+                                        <td>@id</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Name</th>
+                                        <td>@mediaName</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Category</th>
+                                        <td>@category.capitalize</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
 
-                <h4>Metrics</h4>
-                <p><strong>Translation Density:</strong> @translationDensity</p>
-                <p><strong>Localization Index:</strong> @localizationIndex</p>
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h4 class="card-title mb-3">Metrics</h4>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>Translation Density</th>
+                                        <td>@translationDensity</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Localization Index</th>
+                                        <td>@localizationIndex</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 }
