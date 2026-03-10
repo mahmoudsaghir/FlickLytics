@@ -231,5 +231,92 @@ public class MovieOrTVShowTest {
         assertEquals(0.0, minMovie.getVoteAverage(), 0.01);
         assertEquals(10.0, maxMovie.getVoteAverage(), 0.01);
     }
+
+    /**
+     * Tests the 6-arg constructor with year.
+     * Verifies all fields including year are set correctly.
+     *
+     * Equivalence class: Full constructor with year
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testConstructorWithYear() {
+        // Act
+        MovieOrTVShow movie = new MovieOrTVShow("550", "Fight Club", 25.5, 8.8, 10000, "1999");
+
+        // Assert
+        assertEquals("550", movie.getId());
+        assertEquals("Fight Club", movie.getTitle());
+        assertEquals(25.5, movie.getPopularity(), 0.01);
+        assertEquals(8.8, movie.getVoteAverage(), 0.01);
+        assertEquals(10000, movie.getVoteCount());
+        assertEquals("1999", movie.getYear());
+    }
+
+    /**
+     * Tests that the basic constructor defaults year to empty string.
+     *
+     * Equivalence class: Year default for basic constructor
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testBasicConstructorDefaultsYearToEmpty() {
+        // Act
+        MovieOrTVShow movie = new MovieOrTVShow("Inception", 15.5, 8.8, 5000);
+
+        // Assert
+        assertEquals("", movie.getYear());
+    }
+
+    /**
+     * Tests that the 5-arg constructor defaults year to empty string.
+     *
+     * Equivalence class: Year default for 5-arg constructor
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testFiveArgConstructorDefaultsYearToEmpty() {
+        // Act
+        MovieOrTVShow movie = new MovieOrTVShow("1", "Inception", 15.5, 8.8, 5000);
+
+        // Assert
+        assertEquals("", movie.getYear());
+    }
+
+    /**
+     * Tests the 6-arg constructor with null year.
+     * Verifies null year is converted to empty string.
+     *
+     * Equivalence class: Null year handling
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testConstructorWithNullYear() {
+        // Act
+        MovieOrTVShow movie = new MovieOrTVShow("1", "Movie", 10.0, 8.0, 100, null);
+
+        // Assert
+        assertEquals("", movie.getYear());
+    }
+
+    /**
+     * Tests the 6-arg constructor with empty year.
+     *
+     * Equivalence class: Empty year
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testConstructorWithEmptyYear() {
+        // Act
+        MovieOrTVShow movie = new MovieOrTVShow("1", "Movie", 10.0, 8.0, 100, "");
+
+        // Assert
+        assertEquals("", movie.getYear());
+    }
 }
 

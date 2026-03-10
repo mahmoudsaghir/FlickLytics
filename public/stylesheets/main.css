@@ -204,3 +204,61 @@
     font-size: 0.85rem;
     font-weight: 600;
 }
+
+/* Person Profile Card */
+.person-profile-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+}
+.person-photo {
+    width: 180px;
+    height: 240px;
+    object-fit: cover;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    flex-shrink: 0;
+}
+.person-photo-placeholder {
+    width: 180px;
+    height: 240px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #e0e5ec 0%, #c3cfe2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    color: #adb5bd;
+    flex-shrink: 0;
+}
+.person-info-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e9ecef;
+}
+.person-info-table th,
+.person-info-table td {
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.95rem;
+}
+.person-info-table tr:last-child th,
+.person-info-table tr:last-child td {
+    border-bottom: none;
+}
+.person-info-table th {
+    background: #f8f9fa;
+    color: #495057;
+    font-weight: 600;
+    width: 160px;
+    text-align: left;
+}
+.person-info-table td {
+    color: #1a1a2e;
+    font-weight: 500;
+}

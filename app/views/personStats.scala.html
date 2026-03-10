@@ -7,7 +7,7 @@
         @* --- Page Header --- *@
         <div class="page-header d-flex justify-content-between align-items-center">
             <div>
-                <h1>Person Statistics</h1>
+                <h1>@if(stats.getPersonName() != null) {@stats.getPersonName()} else {Person Statistics}</h1>
                 <div class="subtitle">Aggregated analytics across latest works</div>
             </div>
             <div class="d-flex align-items-center gap-3">
@@ -18,6 +18,45 @@
             </div>
         </div>
 
+        @* --- Person Profile Card --- *@
+        <div class="person-profile-card mb-4">
+            <div class="d-flex flex-column flex-md-row align-items-center align-items-md-start gap-4">
+                @if(stats.getProfilePhotoUrl() != null && !stats.getProfilePhotoUrl().isEmpty()) {
+                    <img src="@stats.getProfilePhotoUrl()" alt="@stats.getPersonName()" class="person-photo" />
+                } else {
+                    <div class="person-photo-placeholder">
+                        <span>&#128100;</span>
+                    </div>
+                }
+                <div class="flex-grow-1 w-100">
+                    <table class="person-info-table">
+                        <tbody>
+                            <tr>
+                                <th>Known For</th>
+                                <td>@stats.getKnownFor()</td>
+                            </tr>
+                            <tr>
+                                <th>Gender</th>
+                                <td>@stats.getGender()</td>
+                            </tr>
+                            <tr>
+                                <th>Birthday</th>
+                                <td>@stats.getBirthday()</td>
+                            </tr>
+                            <tr>
+                                <th>Age</th>
+                                <td>@if(stats.getAge() >= 0) {@stats.getAge() years} else {N/A}</td>
+                            </tr>
+                            <tr>
+                                <th>Place of Birth</th>
+                                <td>@stats.getPlaceOfBirth()</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         @* --- Metric Cards --- *@
         <div class="metric-section-title">Performance Metrics</div>
         <div class="row g-4 mb-5">
@@ -25,6 +64,10 @@
                 <div class="metric-card">
                     <div class="metric-icon popularity">&#9733;</div>
                     <div class="metric-label">Popularity</div>
+                    <div class="metric-row">
+                        <span class="label">Count</span>
+                        <span class="value">@stats.getLatestItems().size()</span>
+                    </div>
                     <div class="metric-row">
                         <span class="label">Average</span>
                         <span class="value avg">@("%.2f".format(stats.getPopAvg()))</span>
@@ -44,6 +87,10 @@
                     <div class="metric-icon vote-avg">&#9829;</div>
                     <div class="metric-label">Vote Average</div>
                     <div class="metric-row">
+                        <span class="label">Count</span>
+                        <span class="value">@stats.getLatestItems().size()</span>
+                    </div>
+                    <div class="metric-row">
                         <span class="label">Average</span>
                         <span class="value avg">@("%.2f".format(stats.getVoteAvg()))</span>
                     </div>
@@ -61,6 +108,10 @@
                 <div class="metric-card">
                     <div class="metric-icon vote-count">&#9998;</div>
                     <div class="metric-label">Vote Count</div>
+                    <div class="metric-row">
+                        <span class="label">Count</span>
+                        <span class="value">@stats.getLatestItems().size()</span>
+                    </div>
                     <div class="metric-row">
                         <span class="label">Average</span>
                         <span class="value avg">@("%.1f".format(stats.getCountAvg()))</span>
@@ -83,7 +134,7 @@
             <div class="work-item">
                 <div class="work-number">@(idx + 1)</div>
                 <div class="work-details">
-                    <div class="work-title">@item.getTitle()</div>
+                    <div class="work-title">@item.getTitle() @if(item.getYear() != null && !item.getYear().isEmpty()) {(@item.getYear())}</div>
                     <div class="work-id">ID: @item.getId()</div>
                 </div>
                     <div class="work-badges">

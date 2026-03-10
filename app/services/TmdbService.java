@@ -64,6 +64,22 @@ public class TmdbService {
     }
 
     /**
+     * Fetches personal details for a person by their TMDb ID.
+     * Returns name, photo, gender, birthday, place of birth, known_for_department, etc.
+     *
+     * @param apiUrl The TMDb API base URL
+     * @param token Bearer token for authorization
+     * @param personId The TMDb person ID
+     * @return JsonNode containing person details
+     * @throws Exception if the API request fails
+     * @author Syed Shahab Shah
+     */
+    public JsonNode getPersonDetails(String apiUrl, String token, String personId) throws Exception {
+        String url = apiUrl + "person/" + personId;
+        return Utils.sendGetRequest(url, token);
+    }
+
+    /**
      * Loads collection translation count constant.
      */
     public int loadTargetLanguageConstant(String apiUrl, String token) {

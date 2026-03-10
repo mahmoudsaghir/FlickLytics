@@ -155,6 +155,18 @@ public class HomeControllerTest {
         when(tmdbService.getPersonCredits(anyString(), anyString(), eq("1")))
                 .thenReturn(creditsJson);
 
+        // Mock person details response
+        com.fasterxml.jackson.databind.node.ObjectNode personDetailsJson = Json.newObject();
+        personDetailsJson.put("name", "Test Person");
+        personDetailsJson.put("profile_path", "/test.jpg");
+        personDetailsJson.put("known_for_department", "Acting");
+        personDetailsJson.put("gender", 2);
+        personDetailsJson.put("birthday", "1990-05-15");
+        personDetailsJson.put("place_of_birth", "Los Angeles, USA");
+
+        when(tmdbService.getPersonDetails(anyString(), anyString(), eq("1")))
+                .thenReturn(personDetailsJson);
+
         Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/1/stats");
         Http.Request request = requestBuilder.build();
 
@@ -163,9 +175,167 @@ public class HomeControllerTest {
 
         assertEquals(OK, result.status());
         String html = contentAsString(result);
-        assertTrue(html.contains("Person Statistics"));
+        assertTrue(html.contains("Test Person"));
         assertTrue(html.contains("Movie A"));
         assertTrue(html.contains("Movie B"));
+    }
+
+    /**
+     * Tests the personStats action when API throws an exception.
+     * Should still render the page gracefully with empty stats.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testPersonStatsActionWithApiFailure() throws Exception {
+        when(tmdbService.getPersonCredits(anyString(), anyString(), eq("999")))
+                .thenThrow(new RuntimeException("API failure"));
+
+        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/999/stats");
+        Http.Request request = requestBuilder.build();
+
+        CompletionStage<Result> resultStage = controller.personStats("999", request);
+        Result result = resultStage.toCompletableFuture().join();
+
+        assertEquals(OK, result.status());
+        String html = contentAsString(result);
+        assertTrue(html.contains("Performance Metrics"));
+    }
+
+    /**
+     * Tests the personStats action correctly renders person details (name, gender, birthday, etc.).
+     * Verifies the profile information appears in the rendered HTML.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testPersonStatsRendersPersonDetails() throws Exception {
+        // Mock credits
+        com.fasterxml.jackson.databind.node.ObjectNode creditsJson = Json.newObject();
+        creditsJson.set("cast", Json.newArray());
+        creditsJson.set("crew", Json.newArray());
+
+        when(tmdbService.getPersonCredits(anyString(), anyString(), eq("2")))
+                .thenReturn(creditsJson);
+
+        // Mock person details
+        com.fasterxml.jackson.databind.node.ObjectNode personDetailsJson = Json.newObject();
+        personDetailsJson.put("name", "Scarlett Johansson");
+        personDetailsJson.put("profile_path", "/scarlett.jpg");
+        personDetailsJson.put("known_for_department", "Acting");
+        personDetailsJson.put("gender", 1);
+        personDetailsJson.put("birthday", "1984-11-22");
+        personDetailsJson.put("place_of_birth", "New York City, USA");
+
+        when(tmdbService.getPersonDetails(anyString(), anyString(), eq("2")))
+                .thenReturn(personDetailsJson);
+
+        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/2/stats");
+        Http.Request request = requestBuilder.build();
+
+        CompletionStage<Result> resultStage = controller.personStats("2", request);
+        Result result = resultStage.toCompletableFuture().join();
+
+        assertEquals(OK, result.status());
+        String html = contentAsString(result);
+        assertTrue(html.contains("Scarlett Johansson"));
+        assertTrue(html.contains("Acting"));
+        assertTrue(html.contains("Female"));
+        assertTrue(html.contains("1984-11-22"));
+        assertTrue(html.contains("New York City, USA"));
+    }
+
+    /**
+     * Tests the personStats action correctly parses year from release_date for movies.
+     * Verifies the year appears in the rendered page next to the title.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testPersonStatsRendersYearFromReleaseDate() throws Exception {
+        // Mock credits with release_date
+        JsonNode castItem = Json.newObject()
+                .put("id", 1).put("title", "Inception")
+                .put("popularity", 50.0).put("vote_average", 8.8).put("vote_count", 5000)
+                .put("release_date", "2010-07-16");
+
+        com.fasterxml.jackson.databind.node.ObjectNode creditsJson = Json.newObject();
+        com.fasterxml.jackson.databind.node.ArrayNode castArray = Json.newArray();
+        castArray.add(castItem);
+        creditsJson.set("cast", castArray);
+        creditsJson.set("crew", Json.newArray());
+
+        when(tmdbService.getPersonCredits(anyString(), anyString(), eq("3")))
+                .thenReturn(creditsJson);
+
+        // Mock person details
+        com.fasterxml.jackson.databind.node.ObjectNode personDetailsJson = Json.newObject();
+        personDetailsJson.put("name", "Leonardo DiCaprio");
+        personDetailsJson.put("profile_path", "/leo.jpg");
+        personDetailsJson.put("known_for_department", "Acting");
+        personDetailsJson.put("gender", 2);
+        personDetailsJson.put("birthday", "1974-11-11");
+        personDetailsJson.put("place_of_birth", "Los Angeles, USA");
+
+        when(tmdbService.getPersonDetails(anyString(), anyString(), eq("3")))
+                .thenReturn(personDetailsJson);
+
+        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/3/stats");
+        Http.Request request = requestBuilder.build();
+
+        CompletionStage<Result> resultStage = controller.personStats("3", request);
+        Result result = resultStage.toCompletableFuture().join();
+
+        assertEquals(OK, result.status());
+        String html = contentAsString(result);
+        assertTrue(html.contains("Inception"));
+        assertTrue(html.contains("2010"));
+    }
+
+    /**
+     * Tests the personStats action correctly parses year from first_air_date for TV shows.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testPersonStatsRendersYearFromFirstAirDate() throws Exception {
+        // Mock credits with first_air_date (TV show)
+        JsonNode castItem = Json.newObject()
+                .put("id", 1).put("name", "Breaking Bad")
+                .put("popularity", 80.0).put("vote_average", 9.5).put("vote_count", 10000)
+                .put("first_air_date", "2008-01-20");
+
+        com.fasterxml.jackson.databind.node.ObjectNode creditsJson = Json.newObject();
+        com.fasterxml.jackson.databind.node.ArrayNode castArray = Json.newArray();
+        castArray.add(castItem);
+        creditsJson.set("cast", castArray);
+        creditsJson.set("crew", Json.newArray());
+
+        when(tmdbService.getPersonCredits(anyString(), anyString(), eq("4")))
+                .thenReturn(creditsJson);
+
+        // Mock person details
+        com.fasterxml.jackson.databind.node.ObjectNode personDetailsJson = Json.newObject();
+        personDetailsJson.put("name", "Bryan Cranston");
+        personDetailsJson.put("profile_path", "/bryan.jpg");
+        personDetailsJson.put("known_for_department", "Acting");
+        personDetailsJson.put("gender", 2);
+        personDetailsJson.put("birthday", "1956-03-07");
+        personDetailsJson.put("place_of_birth", "Canoga Park, USA");
+
+        when(tmdbService.getPersonDetails(anyString(), anyString(), eq("4")))
+                .thenReturn(personDetailsJson);
+
+        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/4/stats");
+        Http.Request request = requestBuilder.build();
+
+        CompletionStage<Result> resultStage = controller.personStats("4", request);
+        Result result = resultStage.toCompletableFuture().join();
+
+        assertEquals(OK, result.status());
+        String html = contentAsString(result);
+        assertTrue(html.contains("Breaking Bad"));
+        assertTrue(html.contains("2008"));
     }
 
     /**
