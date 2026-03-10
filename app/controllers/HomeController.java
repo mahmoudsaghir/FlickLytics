@@ -183,6 +183,7 @@ public class HomeController extends Controller {
         return CompletableFuture.supplyAsync(() -> {
                     try {
                         JsonNode json = tmdbService.getPersonCredits(apiUrl, tmdbToken, id);
+                        JsonNode personDetails = tmdbService.getPersonDetails(apiUrl, tmdbToken, id);
                         List<MovieOrTVShow> allItems = new java.util.ArrayList<>();
 
                         // Parse cast credits
@@ -201,7 +202,19 @@ public class HomeController extends Controller {
                                     .forEach(allItems::add);
                         }
 
-                        return new PersonStats(allItems);
+                        PersonStats stats = new PersonStats(allItems);
+
+                        // Set person profile details
+                        stats.setPersonDetails(
+                                personDetails.path("name").asText(null),
+                                personDetails.path("profile_path").asText(null),
+                                personDetails.path("known_for_department").asText(null),
+                                personDetails.path("gender").asInt(0),
+                                personDetails.path("birthday").asText(null),
+                                personDetails.path("place_of_birth").asText(null)
+                        );
+
+                        return stats;
                     } catch (Exception e) {
                         e.printStackTrace();
                         return new PersonStats(null);
@@ -229,7 +242,12 @@ public class HomeController extends Controller {
         double voteAverage = node.has("vote_average") ? node.get("vote_average").asDouble() : 0.0;
         int voteCount = node.has("vote_count") ? node.get("vote_count").asInt() : 0;
 
-        return new MovieOrTVShow(itemId, title, popularity, voteAverage, voteCount);
+        // Extract year from release_date (movies) or first_air_date (TV shows)
+        String dateStr = node.has("release_date") ? node.get("release_date").asText("") :
+                node.has("first_air_date") ? node.get("first_air_date").asText("") : "";
+        String year = (dateStr != null && dateStr.length() >= 4) ? dateStr.substring(0, 4) : "";
+
+        return new MovieOrTVShow(itemId, title, popularity, voteAverage, voteCount, year);
     }
 
     /***
