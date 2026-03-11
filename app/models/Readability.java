@@ -10,6 +10,8 @@ public class Readability {
      * Holds readability scores computed from text.
      * @author Zenghui WU
      */
+    public Readability() {
+    }
     public static class ReadabilityScores {
         public final double fleschReadingEase;
         public final double fleschKincaidGrade;
