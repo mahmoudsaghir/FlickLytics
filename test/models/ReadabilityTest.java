@@ -1,6 +1,8 @@
 package models;
 import org.junit.Test;
 
+import java.lang.reflect.Method;
+
 import static org.junit.Assert.*;
 
 public class ReadabilityTest {
@@ -8,7 +10,19 @@ public class ReadabilityTest {
 
     //helper
     private Readability.ReadabilityScores compute(String text){
+
         return Readability.compute(text);
+    }
+    //helper
+    private int testMethod(String methodName, String input) throws Exception{
+        Method method = Readability.class.getDeclaredMethod(methodName, String.class);
+        method.setAccessible(true);
+        return (int) method.invoke(null,input);
+    }
+    private int invokeCountSyllables(String input) throws Exception {
+        Method method = Readability.class.getDeclaredMethod("countSyllables", String.class);
+        method.setAccessible(true);
+        return (int) method.invoke(null, input);
     }
 
     @Test
@@ -252,6 +266,44 @@ public class ReadabilityTest {
         assertEquals(2, s.sentences);
         assertEquals(6, s.words);
         assertTrue(s.syllables >= 6);
+    }
+    @Test
+    public void testCountSentences_skipsEmptySplitPart() throws Exception {
+        // ".Hello!" -> split gives ["", "Hello"]
+        // empty part should NOT be counted, "Hello" should be counted
+        int result = testMethod("countSentences", ".Hello!");
+        assertEquals(1, result);
+    }
+    @Test
+    public void testCountWords_trueBranch_nonEmptyWord() throws Exception {
+        int result = testMethod("countWords", "one two three");
+        assertEquals(3, result);
+    }
+
+    @Test
+    public void testCountWords_falseBranch_emptyWord() throws Exception {
+        // needed to hit the false side of:
+        // if (!p.trim().isEmpty()) count++;
+        int result = testMethod("countWords", "");
+        assertEquals(0, result);
+    }
+
+    @Test
+    public void testCountSyllables_skipsEmptyWordFragment() throws Exception {
+        // "!!!" becomes spaces, then split can produce an empty fragment
+        // which should hit: if (w.isEmpty()) continue;
+        int result = testMethod("countSyllables", "!!!");
+        assertEquals(0, result);
+    }
+
+    @Test
+    public void testCountSyllables_nonEmptyWordFragment() throws Exception {
+        int result = testMethod("countSyllables", "cat dog");
+        assertEquals(2, result);
+    }
+    @Test
+    public void testCountSyllables_emptyFragmentBranch() throws Exception {
+        assertEquals(1, invokeCountSyllables(" a"));
     }
 
 
