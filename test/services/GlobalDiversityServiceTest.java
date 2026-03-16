@@ -36,42 +36,35 @@ public class GlobalDiversityServiceTest {
     public void testCompute() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
 
-        // detailsRoot JSON
-        String detailsJson = """
+        // detailsAndTranslationsRoot JSON
+        String detailsAndTranslationsJson = """
                 {
                     "overview": "abcd",
-                    "title": "MovieA"
+                    "title": "MovieA",
+                    "translations": {
+                        "translations": [
+                            {
+                                "data": {
+                                    "overview": "ab"
+                                }
+                            },
+                            {
+                                "data": {
+                                    "overview": "abcd"
+                                }
+                            }
+                        ]
+                    }
                 }
                 """;
 
-        JsonNode detailsRoot = mapper.readTree(detailsJson);
-
-        // translations JSON
-        String translationsJson = """
-                {
-                    "translations": [
-                        {
-                            "data": {
-                                "overview": "ab"
-                            }
-                        },
-                        {
-                            "data": {
-                                "overview": "abcd"
-                            }
-                        }
-                    ]
-                }
-                """;
-
-        JsonNode translationRoot = mapper.readTree(translationsJson);
+        JsonNode detailsAndTranslationsRoot = mapper.readTree(detailsAndTranslationsJson);
 
         GlobalDiversityService service = new GlobalDiversityService();
 
         GlobalDiversityResult result = service.compute(
                 "movie",
-                detailsRoot,
-                translationRoot,
+                detailsAndTranslationsRoot,
                 10
         );
 
