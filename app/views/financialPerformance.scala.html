@@ -1,12 +1,14 @@
 @import java.text.NumberFormat
 @import java.util.Locale
-@(details: com.fasterxml.jackson.databind.JsonNode)(implicit request: Http.Request, messages: play.i18n.Messages)
+@(fp: models.FinancialPerformance)(implicit request: Http.Request, messages: play.i18n.Messages)
 
 @main("Financial Performance") {
 
-@defining((details.path("budget").asLong(0), details.path("revenue").asLong(0))) { case (budget, revenue) =>
-@defining(revenue - budget) { profit =>
-@defining(if(budget != 0) ((revenue - budget).toDouble / budget) * 100 else 0) { roiPercent =>
+@defining(fp.getBudget()) { budget =>
+@defining(fp.getRevenue()) { revenue =>
+@defining(fp.getProfit()) { profit =>
+@defining(fp.getRoiPercent()) { roiPercent =>
+
 @defining(NumberFormat.getIntegerInstance(Locale.US)) { intFormatter =>
 @defining(NumberFormat.getNumberInstance(Locale.US)) { percentFormatter =>
 
@@ -14,23 +16,16 @@
 @percentFormatter.setMaximumFractionDigits(2)
 
 <div class="container mt-4">
-    @* --- Page Header --- *@
     <div class="page-header d-flex justify-content-between align-items-center">
-        <div>
-            <h1>Financial Performance</h1>
-        </div>
-        <div class="d-flex align-items-center gap-3">
-            <button type="button" class="btn-back" onclick="window.history.back()">
-                    &#8592; Back to Search
-            </button>
-        </div>
+        <h1>Financial Performance</h1>
+        <button type="button" class="btn-back" onclick="window.history.back()">
+            &#8592; Back to Search
+        </button>
     </div>
 
     <div class="card shadow-sm p-4 mt-3">
-        <!-- Formula Display for Net Profit -->
         <p class="text-center mb-3"><strong>Net Profit = Revenue − Budget</strong></p>
 
-        <!-- Net Profit Table -->
         <table class="table table-bordered text-center mb-4">
             <thead class="table-light">
             <tr>
@@ -42,30 +37,19 @@
             <tbody>
             <tr>
                 <td>
-                    @if(profit < 0) {
-                    <span style="color: red;">-$@intFormatter.format(Math.abs(profit) / 1000000)M</span>
+                    @if(fp.getProfit() < 0) {
+                    <span style="color:red;">-$@fp.formatMillions(Math.abs(fp.getProfit()))</span>
                     } else {
-                    $@intFormatter.format(profit / 1000000)M
+                    $@fp.formatMillions(fp.getProfit())
                     }
                 </td>
-                <td>$@intFormatter.format(revenue / 1000000)M</td>
-                <td>$@intFormatter.format(budget / 1000000)M</td>
+                <td>$@fp.formatMillions(fp.getRevenue())</td>
+                <td>$@fp.formatMillions(fp.getBudget())</td>
             </tr>
             </tbody>
         </table>
 
-
-        <p>&nbsp;</p> <!-- adds another line -->
-
-        <!-- ROI Table -->
-        <p class="text-center mb-3">
-            <strong>
-                ROI % = <span style="display:inline-block; vertical-align:middle; text-align:center;">
-                                            <span style="display:block;">Revenue − Budget</span>
-                                            <span style="display:block; border-top:1px solid #000;">Budget</span>
-                                        </span> × 100
-            </strong>
-        </p>
+        <p class="text-center mb-3"><strong>ROI % = (Revenue − Budget) / Budget × 100</strong></p>
 
         <table class="table table-bordered text-center mb-0">
             <thead class="table-light">
@@ -78,36 +62,27 @@
             <tbody>
             <tr>
                 <td>
-                    @if(roiPercent < 0) {
-                    <span style="color: red;">@percentFormatter.format(roiPercent)%</span>
+                    @if(fp.getRoiPercent() < 0) {
+                    <span style="color:red;">@fp.formatPercent(fp.getRoiPercent())%</span>
                     } else {
-                    @percentFormatter.format(roiPercent)%
+                    @fp.formatPercent(fp.getRoiPercent())%
                     }
                 </td>
-                <td>$@intFormatter.format(revenue / 1000000)M</td>
-                <td>$@intFormatter.format(budget / 1000000)M</td>
+                <td>$@fp.formatMillions(fp.getRevenue())</td>
+                <td>$@fp.formatMillions(fp.getBudget())</td>
             </tr>
             </tbody>
         </table>
 
-        <p>&nbsp;</p> <!-- adds one blank line -->
-        <p>&nbsp;</p> <!-- adds another line -->
+        <p><strong>Financial Rating:</strong> @fp.getFinancialRating()</p>
 
-        <!-- Financial Rating -->
-        @defining(
-        if (roiPercent >= 500) "Blockbuster Success"
-        else if (roiPercent >= 200) "High Return"
-        else if (roiPercent >= 0) "Profitable"
-        else "Financial Loss"
-        ) { bucket =>
-        <p><strong>Financial Rating:</strong> @bucket</p>
-        }
     </div>
 </div>
 
 }
+} <!-- end percentFormatter / intFormatter -->
 }
-}
+} <!-- end roiPercent / profit / revenue / budget -->
 }
 }
 }
