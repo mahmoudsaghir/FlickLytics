@@ -10,6 +10,8 @@ import models.MovieOrTVShow;
 import models.PersonStats;
 import models.Readability;
 import models.ReviewsSummary;
+import models.FinancialPerformance;
+
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
@@ -160,10 +162,17 @@ public class HomeController extends Controller {
                 return null;
             }
         }, clExecutionContext.current()).thenApply(details -> {
+
             if (details == null) {
                 return internalServerError("Failed to fetch movie financial data");
             }
-            return ok(views.html.financialPerformance.render(details, request, messages));
+
+            long budget = details.path("budget").asLong(0);
+            long revenue = details.path("revenue").asLong(0);
+
+            FinancialPerformance fp = new FinancialPerformance(budget, revenue);
+
+            return ok(views.html.financialPerformance.render(fp, request, messages));
         });
     }
 
