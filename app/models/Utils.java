@@ -11,16 +11,17 @@ import java.net.URL;
 
 /**
  * Utility class containing helper methods
+ *
  * @author Mahmoud Saghir
  */
 public class Utils {
     /**
-     * Sends a HTTP GET request and returns the raw JSON response as JsonNode.
+     * Sends an HTTP GET request and returns the raw JSON response as JsonNode.
      *
      * @param urlStr API endpoint URL
      * @param token  Bearer token for authorization (can be null if not required)
      * @return JsonNode representing the JSON response from the API
-     * @throws Exception if connection or reading stream fails
+     * @throws java.lang.Exception if connection or reading stream fails
      * @author Mahmoud Saghir
      */
     public static JsonNode sendGetRequest(String urlStr, String token) throws Exception {
@@ -51,6 +52,7 @@ public class Utils {
 
     /**
      * Rounds a double to two decimal places
+     *
      * @param x double to round
      * @return double rounded to two decimal places
      */
