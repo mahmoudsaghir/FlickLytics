@@ -19,7 +19,7 @@ public class TmdbService {
      * @param query    The search query string
      * @param category The category to search in ("movie", "tv", or "person")
      * @return JsonNode containing search results
-     * @throws Exception if the API request fails
+     * @throws java.lang.Exception if the API request fails
      * @author Mahmoud Saghir
      */
     public JsonNode search(String apiUrl, String token, String query, String category) throws Exception {
@@ -45,7 +45,7 @@ public class TmdbService {
      * @param type   movie or tv
      * @param id     TMDb media ID
      * @return JsonNode containing media details
-     * @throws Exception if the API request fails
+     * @throws java.lang.Exception if the API request fails
      * @author Mahmoud Saghir
      */
     public JsonNode getDetails(String apiUrl, String token, String type, Long id) throws Exception {
@@ -61,7 +61,7 @@ public class TmdbService {
      * @param type   movie or tv
      * @param id     TMDb media ID
      * @return JsonNode containing details and translations in a single response
-     * @throws Exception if the API request fails
+     * @throws java.lang.Exception if the API request fails
      * @author Mahmoud Saghir
      */
     public JsonNode getDetailsAndTranslations(String apiUrl, String token, String type, Long id) throws Exception {
@@ -77,7 +77,7 @@ public class TmdbService {
      * @param token    Bearer token for authorization
      * @param personId The TMDb person ID
      * @return JsonNode containing cast and crew arrays
-     * @throws Exception if the API request fails
+     * @throws java.lang.Exception if the API request fails
      * @author Syed Shahab Shah
      */
     public JsonNode getPersonCredits(String apiUrl, String token, String personId) throws Exception {
@@ -93,7 +93,7 @@ public class TmdbService {
      * @param token    Bearer token for authorization
      * @param personId The TMDb person ID
      * @return JsonNode containing person details
-     * @throws Exception if the API request fails
+     * @throws java.lang.Exception if the API request fails
      * @author Syed Shahab Shah
      */
     public JsonNode getPersonDetails(String apiUrl, String token, String personId) throws Exception {
@@ -136,7 +136,7 @@ public class TmdbService {
      * @param type   The media type ("movie" or "tv")
      * @param id     The TMDb media ID
      * @return JsonNode containing a merged "results" array from up to 3 pages
-     * @throws Exception if the API request fails
+     * @throws java.lang.Exception if the API request fails
      * @author Tasmia Naomi
      */
     public JsonNode getReviews(String apiUrl, String token, String type, Long id) throws Exception {

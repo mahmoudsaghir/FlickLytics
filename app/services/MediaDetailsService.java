@@ -64,7 +64,7 @@ public class MediaDetailsService {
      * @param type The media type ("movie" or "tv")
      * @param id The TMDb media ID
      * @return A DetailsResult containing the details, overview, and readability scores
-     * @throws Exception if the API request fails
+     * @throws java.lang.Exception if the API request fails
      * @author Zenghui WU
      */
     public DetailsResult getDetailsWithReadability(String apiUrl, String token, String type, Long id) throws Exception {
