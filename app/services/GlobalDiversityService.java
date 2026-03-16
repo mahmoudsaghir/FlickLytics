@@ -41,7 +41,7 @@ public class GlobalDiversityService {
         double localizationIndex = StreamSupport.stream(translationsArray.spliterator(), false)
                 .map(node -> node.path("data").path("overview").asText(""))
                 .filter(overview -> !overview.isEmpty())
-                .mapToDouble(overview -> (double) overview.length() / originalLength)
+                .mapToDouble(overview -> Math.min((double) overview.length() / originalLength, 1.0))
                 .average()
                 .orElse(0.0);
 
