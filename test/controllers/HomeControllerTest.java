@@ -100,16 +100,13 @@ public class HomeControllerTest {
         JsonNode detailsNode = Json.newObject().put("overview", "abc");
         JsonNode translationsNode = Json.newObject().set("translations", Json.newArray());
 
-        when(tmdbService.getDetails(anyString(), anyString(), eq("movie"), eq(1L)))
+        when(tmdbService.getDetailsAndTranslations(anyString(), anyString(), eq("movie"), eq(1L)))
                 .thenReturn(detailsNode);
-
-        when(tmdbService.getTranslations(anyString(), anyString(), eq("movie"), eq(1L)))
-                .thenReturn(translationsNode);
 
         // Mock computed result
         GlobalDiversityResult mockResult = new GlobalDiversityResult(0.5, 0.8, "Test Movie");
 
-        when(globalDiversityService.compute(eq("movie"), any(), any(), eq(10)))
+        when(globalDiversityService.compute(eq("movie"), any(), eq(10)))
                 .thenReturn(mockResult);
 
         Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/");

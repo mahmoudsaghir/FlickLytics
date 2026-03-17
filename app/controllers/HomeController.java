@@ -5,11 +5,10 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import forms.SearchForm;
+import models.FinancialPerformance;
 import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
 import models.PersonStats;
-import models.Readability;
-import models.ReviewsSummary;
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
@@ -19,10 +18,7 @@ import play.libs.concurrent.ClassLoaderExecutionContext;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
-import services.GenreService;
-import services.GlobalDiversityService;
-import services.ReviewsService;
-import services.TmdbService;
+import services.*;
 
 import javax.inject.Inject;
 import java.util.Arrays;
@@ -32,16 +28,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import services.MediaDetailsService;
 
 /**
  * Main controller for the FlickLytics web application.
  * Handles HTTP requests and responses for the search functionality and person statistics pages.
  * All controller actions return CompletionStage for asynchronous, non-blocking processing.
- *
+ * <p>
  * This is the single controller for the entire application as per requirements,
  * with business logic delegated to service and model classes.
  *
@@ -49,6 +43,7 @@ import services.MediaDetailsService;
  * @author Mahmoud Saghir
  * @author Zenghui WU
  * @author Tasmia Naomi
+ * @author Charles Wang
  */
 public class HomeController extends Controller {
 
@@ -58,6 +53,7 @@ public class HomeController extends Controller {
     private final String tmdbToken;
     private final String apiUrl;
     private final int targetLanguageConstant;
+
     // Service for media details and readability
     private final MediaDetailsService mediaDetailsService;
     // Service for reviews and sentiment analysis
@@ -77,15 +73,15 @@ public class HomeController extends Controller {
      * Constructs the HomeController with all required dependencies.
      * Dependencies are injected by Play Framework's Guice injector.
      *
-     * @param formFactory Play's form factory for handling form data
-     * @param messagesApi Play's messages API for internationalization
-     * @param clExecutionContext Play's ClassLoaderExecutionContext for async operations
-     * @param config The application configuration
+     * @param formFactory            Play's form factory for handling form data
+     * @param messagesApi            Play's messages API for internationalization
+     * @param clExecutionContext     Play's ClassLoaderExecutionContext for async operations
+     * @param config                 The application configuration
      * @param globalDiversityService The Global Diversity service
-     * @param genreService The Genre service for loading genre maps
-     * @param tmdbService The TMDb service for API communication
-     * @param mediaDetailsService The Media Details service for readability calculations
-     * @param reviewsService The Reviews service for sentiment analysis
+     * @param genreService           The Genre service for loading genre maps
+     * @param tmdbService            The TMDb service for API communication
+     * @param mediaDetailsService    The Media Details service for readability calculations
+     * @param reviewsService         The Reviews service for sentiment analysis
      * @author Mahmoud Saghir
      */
     @Inject
@@ -144,7 +140,7 @@ public class HomeController extends Controller {
      * An action that renders financial data.
      *
      * @param request The HTTP request
-     * @param id The unique identifier of the movie
+     * @param id      The unique identifier of the movie
      * @return A promise to render the information for the financial performance page, or an error if fetching fails
      * @author Charles Wang
      * @author Tasmia Naomi
@@ -160,21 +156,27 @@ public class HomeController extends Controller {
                 return null;
             }
         }, clExecutionContext.current()).thenApply(details -> {
+
             if (details == null) {
                 return internalServerError("Failed to fetch movie financial data");
             }
-            return ok(views.html.financialPerformance.render(details, request, messages));
+
+            long budget = details.path("budget").asLong(0);
+            long revenue = details.path("revenue").asLong(0);
+
+            FinancialPerformance fp = new FinancialPerformance(budget, revenue);
+
+            return ok(views.html.financialPerformance.render(fp, request, messages));
         });
     }
 
     /**
      * Handles GET requests to display a person's "known for" items and statistics.
      * Retrieves data asynchronously from the TMDb API and displays comprehensive statistics.
-     *
      * This action is asynchronous and non-blocking, returning a CompletionStage.
      * Error handling is included to gracefully report any API failures.
      *
-     * @param id The TMDb person ID (passed from the URL)
+     * @param id      The TMDb person ID (passed from the URL)
      * @param request The HTTP request object (injected by Play)
      * @return A CompletionStage containing an HTTP result rendering the person stats page
      * @author Syed Shahab Shah
@@ -253,9 +255,10 @@ public class HomeController extends Controller {
     /***
      * An action that handles the search form submission, performs the TMDb API call,
      * processes the results, and renders the index page with search results.
-     * @author Mahmoud Saghir
+     *
      * @param request The HTTP request
      * @return A promise to render the index page with search results
+     * @author Mahmoud Saghir
      */
     public CompletionStage<Result> search(Http.Request request) {
         Messages messages = messagesApi.preferred(request);
@@ -412,13 +415,11 @@ public class HomeController extends Controller {
         Messages messages = messagesApi.preferred(request);
         return CompletableFuture.supplyAsync(() -> {
                     try {
-                        JsonNode detailsRoot = tmdbService.getDetails(apiUrl, tmdbToken, category, id.longValue());
-                        JsonNode translationRoot = tmdbService.getTranslations(apiUrl, tmdbToken, category, id.longValue());
+                        JsonNode detailsAndTranslationRoot = tmdbService.getDetailsAndTranslations(apiUrl, tmdbToken, category, id.longValue());
 
                         return globalDiversityService.compute(
                                 category,
-                                detailsRoot,
-                                translationRoot,
+                                detailsAndTranslationRoot,
                                 this.targetLanguageConstant
                         );
                     } catch (Exception e) {
@@ -441,9 +442,13 @@ public class HomeController extends Controller {
                     ));
                 });
     }
+
     /**
      * An action that renders the movie details page with readability scores.
      *
+     * @param id      The TMDb ID of the movie
+     * @param request The HTTP request object
+     * @return A CompletionStage rendering the movie details page with readability scores
      * @author Zenghui WU
      */
     public CompletionStage<Result> movie(Long id, Http.Request request) {
@@ -453,6 +458,9 @@ public class HomeController extends Controller {
     /**
      * An action that renders the TV show details page with readability scores.
      *
+     * @param id      The TMDb ID of the TV show
+     * @param request The HTTP request object
+     * @return A CompletionStage rendering the TV show details page with readability scores
      * @author Zenghui WU
      */
     public CompletionStage<Result> tv(Long id, Http.Request request) {
@@ -462,8 +470,8 @@ public class HomeController extends Controller {
     /**
      * Fetches details for a movie or TV show and renders the details page.
      *
-     * @param type The type ("movie" or "tv")
-     * @param id The TMDb ID
+     * @param type    The type ("movie" or "tv")
+     * @param id      The TMDb ID
      * @param request The HTTP request
      * @return A CompletionStage rendering the details page
      * @author Zenghui WU
@@ -499,8 +507,8 @@ public class HomeController extends Controller {
      * Fetches up to 50 reviews from the TMDb API and performs sentiment analysis on each.
      * Displays aggregated sentiment statistics and individual review details.
      *
-     * @param type The media type ("movie" or "tv")
-     * @param id The TMDb media ID
+     * @param type    The media type ("movie" or "tv")
+     * @param id      The TMDb media ID
      * @param request The HTTP request object
      * @return A CompletionStage rendering the reviews page with sentiment analysis
      * @author Tasmia Naomi
@@ -529,6 +537,4 @@ public class HomeController extends Controller {
             ));
         });
     }
-
-
 }

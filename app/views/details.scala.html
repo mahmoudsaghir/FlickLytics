@@ -1,4 +1,3 @@
-
 @(itemType: String, details: com.fasterxml.jackson.databind.JsonNode, overview: String,
         scores: models.Readability.ReadabilityScores,
         request: play.mvc.Http.Request, messages: play.i18n.Messages)
@@ -21,105 +20,239 @@
             </div>
         </div>
         @if(itemType == "movie") {
-            <ul>
-                <li>Release date: @details.path("release_date").asText("")</li>
-                <li>Runtime (min): @details.path("runtime").asInt(0)</li>
-                <li>Popularity: @details.path("popularity").asDouble(0.0)</li>
-                <li>Status: @details.path("status").asText("")</li>
-                <li>Tagline: @details.path("tagline").asText("")</li>
-                <li>Original language: @details.path("original_language").asText("")</li>
-                <li>Vote average: @details.path("vote_average").asDouble(0.0)</li>
-                <li>Vote count: @details.path("vote_count").asInt(0)</li>
-
-                <li>Homepage:
-                    @defining(details.path("homepage").asText("")) { hp =>
-                        @if(hp != "") {
-                            <a href="@hp" target="_blank">@hp</a>
-                        } else { N/A }
+            <div class="row mt-4">
+                <div class="col-md-3 d-flex align-items-stretch">
+                    @defining(details.path("poster_path").asText("")) { p =>
+                        @if(p != "") {
+                            <img src="https://image.tmdb.org/t/p/w500@p" alt="poster" class="rounded shadow w-100 h-100" style="object-fit:cover;">
+                        }
                     }
-                </li>
+                </div>
 
-                <li>Genres:
-                    @defining(details.path("genres")) { gs =>
-                        @if(gs.isArray) {
-                            @for(g <- gs.elements().asScala) {
-                                @g.path("name").asText("")&nbsp;
-                            }
-                        } else { N/A }
-                }
-                </li>
-
-                <li>Production companies:
-                    @defining(details.path("production_companies")) { pcs =>
-                        @if(pcs.isArray) {
-                            @for(c <- pcs.elements().asScala) {
-                                @c.path("name").asText("")&nbsp;
-                            }
-                        } else { N/A }
-                }
-                </li>
-            </ul>
-
-            @defining(details.path("poster_path").asText("")) { p =>
-                @if(p != "") {
-                    <img src="https://image.tmdb.org/t/p/w500@p" alt="poster" style="max-width : 220 px ;">
-                }
-            }
+                <div class="col-md-9">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title mb-3">Movie Information</h5>
+                            <div class="flex-grow-1 w-100">
+                                <table class="table table-sm">
+                                    <tbody>
+                                        <tr>
+                                            <th>Release date</th>
+                                            <td>@details.path("release_date").asText("")</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Runtime (min)</th>
+                                            <td>@details.path("runtime").asInt(0)</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Popularity</th>
+                                            <td>@details.path("popularity").asDouble(0.0)</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Status</th>
+                                            <td>@details.path("status").asText("")</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Tagline</th>
+                                            <td>@details.path("tagline").asText("")</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Original language</th>
+                                            <td>@details.path("original_language").asText("")</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Vote average</th>
+                                            <td>@details.path("vote_average").asDouble(0.0)</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Vote count</th>
+                                            <td>@details.path("vote_count").asInt(0)</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Homepage</th>
+                                            <td>
+                                                @defining(details.path("homepage").asText("")) { hp =>
+                                                    @if(hp != "") {
+                                                        <a href="@hp" target="_blank">@hp</a>
+                                                    } else { N/A }
+                                                }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Genres</th>
+                                            <td>
+                                                @defining(details.path("genres")) { gs =>
+                                                    @if(gs.isArray) {
+                                                        @for(g <- gs.elements().asScala) {
+                                                            <span class="badge bg-secondary me-1">@g.path("name").asText("")</span>
+                                                        }
+                                                    } else { N/A }
+                                                }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Production companies</th>
+                                            <td>
+                                                @defining(details.path("production_companies")) { pcs =>
+                                                    @if(pcs.isArray) {
+                                                        @for(c <- pcs.elements().asScala) {
+                                                            <span class="badge bg-light text-dark border me-1">@c.path("name").asText("")</span>
+                                                        }
+                                                    } else { N/A }
+                                                }
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         }
         @if(itemType == "tv") {
-            <ul>
-                <li>First air date: @details.path("first_air_date").asText("")</li>
-                <li>Last air date: @details.path("last_air_date").asText("")</li>
-                <li>Popularity: @details.path("popularity").asDouble(0.0)</li>
-                <li>Status: @details.path("status").asText("")</li>
-                <li>Tagline: @details.path("tagline").asText("")</li>
-                <li>Type: @details.path("type").asText("")</li>
-                <li>Vote average: @details.path("vote_average").asDouble(0.0)</li>
-                <li>Vote count: @details.path("vote_count").asInt(0)</li>
-                <li>Number of seasons: @details.path("number_of_seasons").asInt(0)</li>
-                <li>Number of episodes: @details.path("number_of_episodes").asInt(0)</li>
-                <li>Homepage:
-                    @defining(details.path("homepage").asText("")) { hp =>
-                        @if(hp != "") {
-                            <a href="@hp" target="_blank">@hp</a>
-                        } else { N/A }
+            <div class="row mt-4">
+                <div class="col-md-4 d-flex align-items-stretch">
+                    @defining(details.path("poster_path").asText("")) { p =>
+                        @if(p != "") {
+                            <img src="https://image.tmdb.org/t/p/w500@p" alt="poster" class="rounded shadow w-100 h-100" style="object-fit:cover;">
+                        }
                     }
-                </li>
-                <li>Genres:
-                    @defining(details.path("genres")) { gs =>
-                        @if(gs.isArray) {
-                            @for(g <- gs.elements().asScala) {
-                                @g.path("name").asText("")&nbsp;
-                            }
-                        } else { N/A }
-                }
-                </li>
-                <li>Networks:
-                    @defining(details.path("networks")) { ns =>
-                        @if(ns.isArray) {
-                            @for(n <- ns.elements().asScala) {
-                                @n.path("name").asText("")&nbsp;
-                            }
-                        } else { N/A }
-                }
-                </li>
-            </ul>
+                </div>
 
-            @defining(details.path("poster_path").asText("")) { p =>
-                @if(p != "") {
-                    <img src="https://image.tmdb.org/t/p/w500@p" alt="poster" style="max-width : 220 px ;">
-                    }
-            }
+                <div class="col-md-8">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title mb-3">TV Show Information</h5>
+                            <div class="flex-grow-1 w-100">
+                                <table class="table table-sm">
+                                    <tbody>
+                                        <tr>
+                                            <th>First air date</th>
+                                            <td>@details.path("first_air_date").asText("")</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Last air date</th>
+                                            <td>@details.path("last_air_date").asText("")</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Popularity</th>
+                                            <td>@details.path("popularity").asDouble(0.0)</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Status</th>
+                                            <td>@details.path("status").asText("")</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Tagline</th>
+                                            <td>@details.path("tagline").asText("")</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Type</th>
+                                            <td>@details.path("type").asText("")</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Vote average</th>
+                                            <td>@details.path("vote_average").asDouble(0.0)</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Vote count</th>
+                                            <td>@details.path("vote_count").asInt(0)</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Number of seasons</th>
+                                            <td>@details.path("number_of_seasons").asInt(0)</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Number of episodes</th>
+                                            <td>@details.path("number_of_episodes").asInt(0)</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Homepage</th>
+                                            <td>
+                                                @defining(details.path("homepage").asText("")) { hp =>
+                                                    @if(hp != "") {
+                                                        <a href="@hp" target="_blank">@hp</a>
+                                                    } else { N/A }
+                                                }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Genres</th>
+                                            <td>
+                                                @defining(details.path("genres")) { gs =>
+                                                    @if(gs.isArray) {
+                                                        @for(g <- gs.elements().asScala) {
+                                                            <span class="badge bg-secondary me-1">@g.path("name").asText("")</span>
+                                                        }
+                                                    } else { N/A }
+                                                }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Networks</th>
+                                            <td>
+                                                @defining(details.path("networks")) { ns =>
+                                                    @if(ns.isArray) {
+                                                        @for(n <- ns.elements().asScala) {
+                                                            <span class="badge bg-light text-dark border me-1">@n.path("name").asText("")</span>
+                                                        }
+                                                    } else { N/A }
+                                                }
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         }
 
-        <h3>Overview</h3>
-        <p>@overview</p>
+        <div class="row mt-4 g-3">
 
-        <h3>Readability</h3>
-        <ul>
-            <li>Flesch Reading Ease: <b>@scores.fleschReadingEase</b></li>
-            <li>Flesch–Kincaid Grade Level: <b>@scores.fleschKincaidGrade</b></li>
-            <li>Sentences: @scores.sentences, Words: @scores.words, Syllables: @scores.syllables</li>
-        </ul>
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h4 class="card-title">Overview</h4>
+                        <p class="card-text">@overview</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h4 class="card-title">Readability Metrics</h4>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <th>Flesch Reading Ease</th>
+                                    <td>@scores.fleschReadingEase</td>
+                                </tr>
+                                <tr>
+                                    <th>Flesch–Kincaid Grade Level</th>
+                                    <td>@scores.fleschKincaidGrade</td>
+                                </tr>
+                                <tr>
+                                    <th>Sentences</th>
+                                    <td>@scores.sentences</td>
+                                </tr>
+                                <tr>
+                                    <th>Words</th>
+                                    <td>@scores.words</td>
+                                </tr>
+                                <tr>
+                                    <th>Syllables</th>
+                                    <td>@scores.syllables</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
     </div>
 }

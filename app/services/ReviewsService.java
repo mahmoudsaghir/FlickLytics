@@ -41,7 +41,7 @@ public class ReviewsService {
      * @param type The media type ("movie" or "tv")
      * @param id The TMDb media ID
      * @return A ReviewsSummary containing analyzed reviews and aggregated sentiment data
-     * @throws Exception if the API request fails
+     * @throws java.lang.Exception if the API request fails
      * @author Tasmia Naomi
      */
     public ReviewsSummary getReviewsWithSentiment(String apiUrl, String token, String type, Long id) throws Exception {
