@@ -3,6 +3,14 @@ package models;
 import java.text.NumberFormat;
 import java.util.Locale;
 
+/**
+ * It stores the budget and revenue and provides methods to
+ * calculate profit, return on investment (ROI), financial rating,
+ * and formatted financial values.
+ *
+ * @author Charles Wang
+ */
+
 public class FinancialPerformance {
 
     private long budget;

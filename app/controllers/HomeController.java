@@ -35,7 +35,7 @@ import java.util.stream.StreamSupport;
  * Main controller for the FlickLytics web application.
  * Handles HTTP requests and responses for the search functionality and person statistics pages.
  * All controller actions return CompletionStage for asynchronous, non-blocking processing.
- * <p>
+ *
  * This is the single controller for the entire application as per requirements,
  * with business logic delegated to service and model classes.
  *
@@ -137,11 +137,17 @@ public class HomeController extends Controller {
     }
 
     /**
-     * An action that renders financial data.
+     * The method retrieves movie details from the TMDB service, extracts the
+     * budget and revenue values, creates a FinancialPerformance object, and
+     * renders the financial performance view.
+     *
+     * This action is asynchronous and non-blocking.
+     * Error handling is included to report API failures.
      *
      * @param request The HTTP request
-     * @param id      The unique identifier of the movie
-     * @return A promise to render the information for the financial performance page, or an error if fetching fails
+     * @param id The unique identifier of the movie
+     * @return a CompletionStage containing the rendered financial performance page,
+     *         or an internal server error if the movie data cannot be retrieved
      * @author Charles Wang
      * @author Tasmia Naomi
      */
@@ -173,6 +179,7 @@ public class HomeController extends Controller {
     /**
      * Handles GET requests to display a person's "known for" items and statistics.
      * Retrieves data asynchronously from the TMDb API and displays comprehensive statistics.
+     *
      * This action is asynchronous and non-blocking, returning a CompletionStage.
      * Error handling is included to gracefully report any API failures.
      *
@@ -442,7 +449,6 @@ public class HomeController extends Controller {
                     ));
                 });
     }
-
     /**
      * An action that renders the movie details page with readability scores.
      *
