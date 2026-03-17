@@ -137,7 +137,7 @@ public class HomeController extends Controller {
     }
 
     /**
-     * The method retrieves movie details from the TMDB service, extracts the
+     * Retrieves movie details from the TMDB service, extracts the
      * budget and revenue values, creates a FinancialPerformance object, and
      * renders the financial performance view.
      *
@@ -146,7 +146,7 @@ public class HomeController extends Controller {
      *
      * @param request The HTTP request
      * @param id The unique identifier of the movie
-     * @return a CompletionStage containing the rendered financial performance page,
+     * @return a CompletionStage/promise to render containing the rendered financial performance page,
      *         or an internal server error if the movie data cannot be retrieved
      * @author Charles Wang
      * @author Tasmia Naomi
