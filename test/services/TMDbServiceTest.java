@@ -828,4 +828,214 @@ public class TMDbServiceTest {
             mockedUtils.verify(() -> Utils.sendGetRequest(contains("page=5"), anyString()), never());
         }
     }
+
+    // ===== TmdbService.search Tests =====
+
+    /**
+     * Covers movie search URL composition and space encoding.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testSearchMovieEncodesQueryAndCallsMovieEndpoint() throws Exception {
+        TmdbService tmdbService = new TmdbService();
+        JsonNode mockNode = play.libs.Json.parse("{\"results\": []}");
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(
+                            eq("http://api.tmdb.org/3/search/movie?query=Spider%20Man"), eq("token")))
+                    .thenReturn(mockNode);
+
+            JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Spider Man", "movie");
+
+            assertSame(mockNode, result);
+            mockedUtils.verify(() -> Utils.sendGetRequest(
+                    eq("http://api.tmdb.org/3/search/movie?query=Spider%20Man"), eq("token")));
+        }
+    }
+
+    /**
+     * Covers tv search URL composition.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testSearchTvBuildsTvEndpoint() throws Exception {
+        TmdbService tmdbService = new TmdbService();
+        JsonNode mockNode = play.libs.Json.parse("{\"results\": []}");
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(
+                            eq("http://api.tmdb.org/3/search/tv?query=Breaking%20Bad"), eq("token")))
+                    .thenReturn(mockNode);
+
+            JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Breaking Bad", "tv");
+
+            assertSame(mockNode, result);
+        }
+    }
+
+    /**
+     * Covers person search URL composition.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testSearchPersonBuildsPersonEndpoint() throws Exception {
+        TmdbService tmdbService = new TmdbService();
+        JsonNode mockNode = play.libs.Json.parse("{\"results\": []}");
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(
+                            eq("http://api.tmdb.org/3/search/person?query=Tom%20Hanks"), eq("token")))
+                    .thenReturn(mockNode);
+
+            JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Tom Hanks", "person");
+
+            assertSame(mockNode, result);
+        }
+    }
+
+    /**
+     * Covers default switch branch where category is unsupported.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testSearchUnsupportedCategoryFallsBackToBaseSearchUrl() throws Exception {
+        TmdbService tmdbService = new TmdbService();
+        JsonNode mockNode = play.libs.Json.parse("{\"results\": []}");
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(eq("http://api.tmdb.org/3/search/"), eq("token")))
+                    .thenReturn(mockNode);
+
+            JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Ignored Query", "collection");
+
+            assertSame(mockNode, result);
+            mockedUtils.verify(() -> Utils.sendGetRequest(eq("http://api.tmdb.org/3/search/"), eq("token")));
+        }
+    }
+
+    /**
+     * Covers exception propagation path for search.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test(expected = Exception.class)
+    public void testSearchPropagatesException() throws Exception {
+        TmdbService tmdbService = new TmdbService();
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(anyString(), anyString()))
+                    .thenThrow(new Exception("API failure"));
+
+            tmdbService.search("http://api.tmdb.org/3/", "token", "Any Query", "movie");
+        }
+    }
+
+    // ===== TmdbService.loadTargetLanguageConstant Tests =====
+
+    /**
+     * Returns size when translations field is an array.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testLoadTargetLanguageConstantReturnsArraySize() {
+        TmdbService tmdbService = new TmdbService();
+        JsonNode node = play.libs.Json.parse("{\"translations\":[{\"iso_639_1\":\"en\"},{\"iso_639_1\":\"fr\"}]}");
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(
+                            eq("http://api.tmdb.org/3/collection/10/translations"), eq("token")))
+                    .thenReturn(node);
+
+            int constant = tmdbService.loadTargetLanguageConstant("http://api.tmdb.org/3/", "token");
+
+            assertEquals(2, constant);
+            mockedUtils.verify(() -> Utils.sendGetRequest(
+                    eq("http://api.tmdb.org/3/collection/10/translations"), eq("token")));
+        }
+    }
+
+    /**
+     * Returns fallback 1 when translations is not an array.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testLoadTargetLanguageConstantReturnsFallbackWhenNotArray() {
+        TmdbService tmdbService = new TmdbService();
+        JsonNode node = play.libs.Json.parse("{\"translations\":{\"iso_639_1\":\"en\"}}");
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(anyString(), anyString())).thenReturn(node);
+
+            int constant = tmdbService.loadTargetLanguageConstant("http://api.tmdb.org/3/", "token");
+
+            assertEquals(1, constant);
+        }
+    }
+
+    /**
+     * Returns fallback 1 when request throws exception.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testLoadTargetLanguageConstantReturnsFallbackOnException() {
+        TmdbService tmdbService = new TmdbService();
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(anyString(), anyString()))
+                    .thenThrow(new RuntimeException("boom"));
+
+            int constant = tmdbService.loadTargetLanguageConstant("http://api.tmdb.org/3/", "token");
+
+            assertEquals(1, constant);
+        }
+    }
+
+    // ===== TmdbService.getDetailsAndTranslations Tests =====
+
+    /**
+     * Covers URL composition and success result passthrough for getDetailsAndTranslations.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testGetDetailsAndTranslationsBuildsExpectedUrl() throws Exception {
+        TmdbService tmdbService = new TmdbService();
+        JsonNode mockNode = play.libs.Json.parse("{\"id\": 100, \"translations\": {\"translations\":[]}}");
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(
+                            eq("http://api.tmdb.org/3/movie/100?append_to_response=translations&language=en-US"), eq("token")))
+                    .thenReturn(mockNode);
+
+            JsonNode result = tmdbService.getDetailsAndTranslations("http://api.tmdb.org/3/", "token", "movie", 100L);
+
+            assertSame(mockNode, result);
+            mockedUtils.verify(() -> Utils.sendGetRequest(
+                    eq("http://api.tmdb.org/3/movie/100?append_to_response=translations&language=en-US"), eq("token")));
+        }
+    }
+
+    /**
+     * Covers exception propagation for getDetailsAndTranslations.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test(expected = Exception.class)
+    public void testGetDetailsAndTranslationsPropagatesException() throws Exception {
+        TmdbService tmdbService = new TmdbService();
+
+        try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
+            mockedUtils.when(() -> Utils.sendGetRequest(anyString(), anyString()))
+                    .thenThrow(new Exception("API failure"));
+
+            tmdbService.getDetailsAndTranslations("http://api.tmdb.org/3/", "token", "tv", 99L);
+        }
+    }
 }

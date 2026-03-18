@@ -1,6 +1,7 @@
 package controllers;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
@@ -10,14 +11,17 @@ import models.ReviewsSummary;
 import org.junit.Before;
 import org.junit.Test;
 import play.Application;
+import play.api.routing.JavaScriptReverseRoute;
 import play.data.FormFactory;
 import play.i18n.MessagesApi;
 import play.inject.guice.GuiceApplicationBuilder;
 import play.libs.Json;
 import play.libs.concurrent.ClassLoaderExecutionContext;
+import play.mvc.Call;
 import play.mvc.Http;
 import play.mvc.Result;
 import play.test.Helpers;
+import scala.runtime.AbstractFunction0;
 import services.GenreService;
 import services.GlobalDiversityService;
 import services.MediaDetailsService;
@@ -26,6 +30,7 @@ import services.TmdbService;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.lang.reflect.Method;
 import java.util.concurrent.CompletionStage;
 
 import static org.junit.Assert.*;
@@ -487,6 +492,288 @@ public class HomeControllerTest {
         assertEquals(OK, result.status());
         String html = contentAsString(result);
         assertTrue(html.contains("No reviews found"));
+    }
+
+    /**
+     * Tests root redirect action.
+     *
+     * @author Mahmoud Saghir
+     */
+    @Test
+    public void testRedirectToFlicklytics() {
+        Result result = controller.redirectToFlicklytics();
+        assertEquals(SEE_OTHER, result.status());
+        assertTrue(result.redirectLocation().isPresent());
+        assertTrue(result.redirectLocation().get().contains("/flicklytics"));
+    }
+
+    /**
+     * Tests search with form errors.
+     *
+     * @author Mahmoud Saghir
+     */
+    @Test
+    public void testSearchWithFormErrors() {
+        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
+                .bodyForm(java.util.Map.of("query", ""))
+                .build();
+
+        Result result = controller.search(request).toCompletableFuture().join();
+        assertEquals(OK, result.status());
+        assertTrue(contentAsString(result).contains("Welcome to FlickLytics"));
+    }
+
+    /**
+     * Tests successful movie search flow and session header write.
+     *
+     * @author Mahmoud Saghir
+     */
+    @Test
+    public void testSearchMovieSuccessAndSessionHeader() throws Exception {
+        ObjectNode item = Json.newObject();
+        item.put("id", 100);
+        item.put("title", "The Matrix");
+        item.put("original_language", "en");
+        item.put("release_date", "1999-03-31");
+        item.put("popularity", 9.9);
+        item.put("vote_average", 8.7);
+        item.set("genre_ids", Json.newArray().add(28));
+
+        ObjectNode root = Json.newObject();
+        root.put("total_results", 1);
+        root.set("results", Json.newArray().add(item));
+
+        when(tmdbService.search(anyString(), anyString(), eq("matrix"), eq("movie"))).thenReturn(root);
+
+        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
+                .bodyForm(java.util.Map.of("query", "matrix", "category", "movie"))
+                .build();
+
+        Result result = controller.search(request).toCompletableFuture().join();
+        assertEquals(OK, result.status());
+        assertTrue(contentAsString(result).contains("The Matrix"));
+        assertTrue(contentAsString(result).contains("Total results: 1"));
+    }
+
+    /**
+     * Tests search exception path in async fetch.
+     *
+     * @author Mahmoud Saghir
+     */
+    @Test
+    public void testSearchApiFailurePath() throws Exception {
+        when(tmdbService.search(anyString(), anyString(), eq("bad"), eq("tv")))
+                .thenThrow(new RuntimeException("API down"));
+
+        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
+                .bodyForm(java.util.Map.of("query", "bad", "category", "tv"))
+                .session("searchHistory", "a,b,c,d,e,f,g,h,i,j,k")
+                .build();
+
+        Result result = controller.search(request).toCompletableFuture().join();
+        assertEquals(OK, result.status());
+        assertTrue(contentAsString(result).contains("Welcome to FlickLytics"));
+    }
+
+    /**
+     * Tests private parseMediaItem branches via reflection.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testParseMediaItemBranchVariantsViaReflection() throws Exception {
+        Method m = HomeController.class.getDeclaredMethod("parseMediaItem", JsonNode.class);
+        m.setAccessible(true);
+
+        JsonNode movieNode = Json.newObject()
+                .put("id", 1)
+                .put("title", "Movie Title")
+                .put("popularity", 1.5)
+                .put("vote_average", 2.5)
+                .put("vote_count", 3)
+                .put("release_date", "2020-01-01");
+        MovieOrTVShow movie = (MovieOrTVShow) m.invoke(controller, movieNode);
+        assertEquals("Movie Title", movie.getTitle());
+        assertEquals("2020", movie.getYear());
+
+        JsonNode tvNode = Json.newObject()
+                .put("name", "TV Name")
+                .put("first_air_date", "2015-07-10");
+        MovieOrTVShow tv = (MovieOrTVShow) m.invoke(controller, tvNode);
+        assertEquals("TV Name", tv.getTitle());
+        assertEquals("2015", tv.getYear());
+
+        JsonNode emptyNode = Json.newObject();
+        MovieOrTVShow fallback = (MovieOrTVShow) m.invoke(controller, emptyNode);
+        assertEquals("Unknown", fallback.getTitle());
+        assertEquals("", fallback.getYear());
+        assertEquals("", fallback.getId());
+    }
+
+    /**
+     * Tests constructor catch path when genre loading throws.
+     *
+     * @author Mahmoud Saghir
+     */
+    @Test
+    public void testConstructorHandlesGenreLoadFailure() throws Exception {
+        Application application = new GuiceApplicationBuilder().build();
+        Helpers.start(application);
+
+        GenreService throwingGenreService = mock(GenreService.class);
+        Config config = mock(Config.class);
+        when(config.getString("tmdb.api.key")).thenReturn("fake-key");
+        when(config.getString("tmdb.api.url")).thenReturn("fake-url");
+        doThrow(new RuntimeException("genre load failed"))
+                .when(throwingGenreService)
+                .loadGenres(anyString(), anyString(), anyMap(), anyMap());
+        when(tmdbService.loadTargetLanguageConstant(anyString(), anyString())).thenReturn(10);
+
+        HomeController localController = new HomeController(
+                application.injector().instanceOf(FormFactory.class),
+                application.injector().instanceOf(MessagesApi.class),
+                application.injector().instanceOf(ClassLoaderExecutionContext.class),
+                config,
+                globalDiversityService,
+                throwingGenreService,
+                tmdbService,
+                mediaDetailsService,
+                reviewsService
+        );
+
+        Result result = localController.index(Helpers.fakeRequest(GET, "/flicklytics").build())
+                .toCompletableFuture().join();
+        assertEquals(OK, result.status());
+    }
+
+    /**
+     * Covers generated controllers.routes wrappers (including nested javascript class).
+     *
+     * @author Mahmoud Saghir
+     */
+    @Test
+    public void testGeneratedRoutesWrappersCoverage() {
+        assertNotNull(new routes());
+        assertNotNull(new routes.javascript());
+        assertNotNull(routes.javascript.HomeController);
+        assertNotNull(routes.javascript.Assets);
+    }
+
+    /**
+     * Covers ReverseHomeController and ReverseAssets generated methods and prefix branches.
+     *
+     * @author Mahmoud Saghir
+     */
+    @Test
+    public void testReverseRoutesCoverage() {
+        ReverseHomeController withSlash = new ReverseHomeController(new AbstractFunction0<String>() {
+            @Override
+            public String apply() {
+                return "/";
+            }
+        });
+
+        ReverseHomeController withoutSlash = new ReverseHomeController(new AbstractFunction0<String>() {
+            @Override
+            public String apply() {
+                return "/api";
+            }
+        });
+
+        assertTrue(withSlash.index().url().contains("flicklytics"));
+        assertTrue(withoutSlash.index().url().contains("/api/flicklytics"));
+        assertTrue(withSlash.movie(1L).url().contains("/movie/1"));
+        assertTrue(withSlash.tv(2L).url().contains("/tv/2"));
+        assertEquals("/", withSlash.redirectToFlicklytics().url());
+        assertTrue(withSlash.search().url().contains("flicklytics"));
+        assertTrue(withSlash.personStats("12").url().contains("/person/12/stats"));
+        assertTrue(withSlash.reviews("movie", 10L).url().contains("/reviews/movie/10"));
+        assertTrue(withSlash.globalDiversity("movie", 5).url().contains("global-diversity/movie/5"));
+        assertTrue(withSlash.financialPerformance(9).url().contains("financial-performance/9"));
+
+        ReverseAssets assetsWithSlash = new ReverseAssets(new AbstractFunction0<String>() {
+            @Override
+            public String apply() {
+                return "/";
+            }
+        });
+
+        ReverseAssets assetsWithoutSlash = new ReverseAssets(new AbstractFunction0<String>() {
+            @Override
+            public String apply() {
+                return "/api";
+            }
+        });
+
+        Call c1 = assetsWithSlash.versioned(new Assets.Asset("stylesheets/main.css"));
+        Call c2 = assetsWithoutSlash.versioned(new Assets.Asset("stylesheets/main.css"));
+        assertTrue(c1.url().contains("/flicklytics/assets/"));
+        assertTrue(c2.url().contains("/api/flicklytics/assets/"));
+    }
+
+    /**
+     * Covers controllers.javascript reverse route generated methods.
+     *
+     * @author Mahmoud Saghir
+     */
+    @Test
+    public void testJavaScriptReverseRoutesCoverage() {
+        controllers.javascript.ReverseHomeController jsWithSlash =
+                new controllers.javascript.ReverseHomeController(new AbstractFunction0<String>() {
+                    @Override
+                    public String apply() {
+                        return "/";
+                    }
+                });
+
+        controllers.javascript.ReverseHomeController jsWithoutSlash =
+                new controllers.javascript.ReverseHomeController(new AbstractFunction0<String>() {
+                    @Override
+                    public String apply() {
+                        return "/api";
+                    }
+                });
+
+        JavaScriptReverseRoute r1 = jsWithSlash.index();
+        JavaScriptReverseRoute r2 = jsWithSlash.movie();
+        JavaScriptReverseRoute r3 = jsWithSlash.tv();
+        JavaScriptReverseRoute r4 = jsWithSlash.search();
+        JavaScriptReverseRoute r5 = jsWithSlash.redirectToFlicklytics();
+        JavaScriptReverseRoute r6 = jsWithSlash.personStats();
+        JavaScriptReverseRoute r7 = jsWithSlash.reviews();
+        JavaScriptReverseRoute r8 = jsWithSlash.globalDiversity();
+        JavaScriptReverseRoute r9 = jsWithSlash.financialPerformance();
+        JavaScriptReverseRoute r10 = jsWithoutSlash.index();
+
+        assertNotNull(r1);
+        assertNotNull(r2);
+        assertNotNull(r3);
+        assertNotNull(r4);
+        assertNotNull(r5);
+        assertNotNull(r6);
+        assertNotNull(r7);
+        assertNotNull(r8);
+        assertNotNull(r9);
+        assertNotNull(r10);
+
+        controllers.javascript.ReverseAssets jsAssetsWithSlash =
+                new controllers.javascript.ReverseAssets(new AbstractFunction0<String>() {
+                    @Override
+                    public String apply() {
+                        return "/";
+                    }
+                });
+
+        controllers.javascript.ReverseAssets jsAssetsWithoutSlash =
+                new controllers.javascript.ReverseAssets(new AbstractFunction0<String>() {
+                    @Override
+                    public String apply() {
+                        return "/api";
+                    }
+                });
+
+        assertNotNull(jsAssetsWithSlash.versioned());
+        assertNotNull(jsAssetsWithoutSlash.versioned());
     }
 }
 
