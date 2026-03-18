@@ -342,6 +342,7 @@ public class HomeControllerTest {
      * @author Charles Wang
      * @author Tasmia Naomi
      */
+
     @Test
     public void testFinancialPerformanceSuccess() throws Exception {
         JsonNode mockDetails = Json.newObject()
