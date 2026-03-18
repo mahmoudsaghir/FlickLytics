@@ -146,11 +146,12 @@ public class HomeController extends Controller {
      *
      * @param request The HTTP request
      * @param id The unique identifier of the movie
-     * @return a CompletionStage/promise to render containing the rendered financial performance page,
+     * @return a promise to render containing the rendered financial performance page,
      *         or an internal server error if the movie data cannot be retrieved
      * @author Charles Wang
      * @author Tasmia Naomi
      */
+
     public CompletionStage<Result> financialPerformance(Http.Request request, Integer id) {
         Messages messages = messagesApi.preferred(request);
 
