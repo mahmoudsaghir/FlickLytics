@@ -11,6 +11,7 @@ import java.util.Locale;
  *
  * @author Charles Wang
  */
+
 public class FinancialPerformance {
 
     private long budget;
@@ -21,7 +22,10 @@ public class FinancialPerformance {
      *
      * @param budget the total production budget
      * @param revenue the total revenue generated
+     * @author Charles Wang
+     *
      */
+
     public FinancialPerformance(long budget, long revenue) {
         this.budget = budget;
         this.revenue = revenue;
@@ -31,7 +35,10 @@ public class FinancialPerformance {
      * Returns the budget amount.
      *
      * @return the budget
+     * @author Charles Wang
+     *
      */
+
     public long getBudget() {
         return budget;
     }
@@ -40,7 +47,10 @@ public class FinancialPerformance {
      * Returns the revenue amount.
      *
      * @return the revenue
+     * @author Charles Wang
+     *
      */
+
     public long getRevenue() {
         return revenue;
     }
@@ -49,7 +59,10 @@ public class FinancialPerformance {
      * Calculates the profit by subtracting the budget from the revenue.
      *
      * @return the profit amount
+     * @author Charles Wang
+     *
      */
+
     public long getProfit() {
         return revenue - budget;
     }
@@ -58,7 +71,10 @@ public class FinancialPerformance {
      * Calculates the Return on Investment (ROI) percentage.
      *
      * @return ROI percentage, or 0 if the budget is 0
+     * @author Charles Wang
+     *
      */
+
     public double getRoiPercent() {
         if (budget == 0) return 0;
         return ((double)(revenue - budget) / budget) * 100;
@@ -68,7 +84,10 @@ public class FinancialPerformance {
      * Determines the financial rating based on ROI percentage.
      *
      * @return a string describing the financial performance category
+     * @author Charles Wang
+     *
      */
+
     public String getFinancialRating() {
         double roi = getRoiPercent();
 
@@ -83,7 +102,10 @@ public class FinancialPerformance {
      *
      * @param value the number to format
      * @return formatted value in millions
+     * @author Charles Wang
+     *
      */
+
     public String formatMillions(long value) {
         NumberFormat formatter = NumberFormat.getIntegerInstance(Locale.US);
         return formatter.format(value / 1_000_000) + "M";
@@ -94,7 +116,10 @@ public class FinancialPerformance {
      *
      * @param value the percentage value
      * @return formatted percentage string
+     * @author Charles Wang
+     *
      */
+
     public String formatPercent(double value) {
         NumberFormat formatter = NumberFormat.getNumberInstance(Locale.US);
         formatter.setMinimumFractionDigits(2);
