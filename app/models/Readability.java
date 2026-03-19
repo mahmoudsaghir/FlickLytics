@@ -129,6 +129,7 @@ public class Readability {
      * @author ZW
      */
     private static int countWords(String t) {
+        //split the text wherever there are more than one or more whitespace characters;
         String[] parts = t.trim().split("\\s+");
         int count = 0;
         for (String p : parts) {
