@@ -18,21 +18,21 @@ public class GlobalDiversityService {
      * Computes Translation Density and Localization Index.
      *
      * @param category                   movie or tv
-     * @param detailsRAndTranslationRoot details and translations
+     * @param detailsAndTranslationRoot details and translations
      * @param targetLanguageConstant     normalization constant
      * @return GlobalDiversityResult
      * @author Mahmoud Saghir
      */
-    public GlobalDiversityResult compute(String category, JsonNode detailsRAndTranslationRoot, int targetLanguageConstant) {
-        String originalOverview = detailsRAndTranslationRoot.path("overview").asText("");
+    public GlobalDiversityResult compute(String category, JsonNode detailsAndTranslationRoot, int targetLanguageConstant) {
+        String originalOverview = detailsAndTranslationRoot.path("overview").asText("");
 
         String mediaName = category.equals("movie")
-                ? detailsRAndTranslationRoot.path("title").asText("")
-                : detailsRAndTranslationRoot.path("name").asText("");
+                ? detailsAndTranslationRoot.path("title").asText("")
+                : detailsAndTranslationRoot.path("name").asText("");
 
         int originalLength = Math.max(originalOverview.length(), 1);
 
-        ArrayNode translationsArray = (ArrayNode) detailsRAndTranslationRoot.path("translations")
+        ArrayNode translationsArray = (ArrayNode) detailsAndTranslationRoot.path("translations")
                 .path("translations");
 
         // Translation Density
