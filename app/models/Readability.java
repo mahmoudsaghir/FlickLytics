@@ -148,6 +148,7 @@ public class Readability {
      * @author ZW
      */
     private static int countSyllables(String t) {
+        //remove everything that is not a lowercase English letter or whitespace
         String[] words = t.toLowerCase().replaceAll("[^a-z\\s]", " ").split("\\s+");
         int total = 0;
         for (String w : words) {
