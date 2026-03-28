@@ -41,7 +41,6 @@ import java.util.stream.StreamSupport;
  * Main controller for the FlickLytics web application.
  * Handles HTTP requests and responses for the search functionality and person statistics pages.
  * All controller actions return CompletionStage for asynchronous, non-blocking processing.
- *
  * This is the single controller for the entire application as per requirements,
  * with business logic delegated to service and model classes.
  *
@@ -91,6 +90,7 @@ public class HomeController extends Controller {
      * @param tmdbService            The TMDb service for API communication
      * @param mediaDetailsService    The Media Details service for readability calculations
      * @param reviewsService         The Reviews service for sentiment analysis
+     * @param actorSystem            The Pekko Actor System for concurrency
      * @author Mahmoud Saghir
      */
     @Inject
@@ -156,7 +156,6 @@ public class HomeController extends Controller {
      * Retrieves movie details from the TMDB service, extracts the
      * budget and revenue values, creates a FinancialPerformance object, and
      * renders the financial performance view.
-     *
      * This action is asynchronous and non-blocking.
      * Error handling is included to report API failures.
      *
@@ -196,7 +195,6 @@ public class HomeController extends Controller {
     /**
      * Handles GET requests to display a person's "known for" items and statistics.
      * Retrieves data asynchronously from the TMDb API and displays comprehensive statistics.
-     *
      * This action is asynchronous and non-blocking, returning a CompletionStage.
      * Error handling is included to gracefully report any API failures.
      *
