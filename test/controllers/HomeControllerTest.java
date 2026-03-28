@@ -5,10 +5,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
-import models.PersonStats;
 import models.Review;
 import models.ReviewsSummary;
+import org.apache.pekko.actor.testkit.typed.javadsl.TestKitJunitResource;
+import org.apache.pekko.actor.typed.ActorSystem;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
 import play.Application;
 import play.api.routing.JavaScriptReverseRoute;
@@ -55,6 +57,9 @@ public class HomeControllerTest {
     private GlobalDiversityService globalDiversityService;
     private MediaDetailsService mediaDetailsService;
     private ReviewsService reviewsService;
+
+    @ClassRule
+    public static final TestKitJunitResource testKit = new TestKitJunitResource();
     /**
      * Sets up test fixtures before each test.
      * Creates mock services and injects them into the controller.
@@ -79,6 +84,8 @@ public class HomeControllerTest {
         Application application = new GuiceApplicationBuilder().build();
         Helpers.start(application);
 
+        ActorSystem<Void> actorSystem = testKit.system();
+
         controller = new HomeController(
                 application.injector().instanceOf(FormFactory.class),
                 application.injector().instanceOf(MessagesApi.class),
@@ -88,7 +95,8 @@ public class HomeControllerTest {
                 genreService,
                 tmdbService,
                 mediaDetailsService,
-                reviewsService
+                reviewsService,
+                actorSystem
         );
     }
 
@@ -629,6 +637,8 @@ public class HomeControllerTest {
                 .loadGenres(anyString(), anyString(), anyMap(), anyMap());
         when(tmdbService.loadTargetLanguageConstant(anyString(), anyString())).thenReturn(10);
 
+        ActorSystem<Void> actorSystem = testKit.system();
+
         HomeController localController = new HomeController(
                 application.injector().instanceOf(FormFactory.class),
                 application.injector().instanceOf(MessagesApi.class),
@@ -638,7 +648,8 @@ public class HomeControllerTest {
                 throwingGenreService,
                 tmdbService,
                 mediaDetailsService,
-                reviewsService
+                reviewsService,
+                actorSystem
         );
 
         Result result = localController.index(Helpers.fakeRequest(GET, "/flicklytics").build())
