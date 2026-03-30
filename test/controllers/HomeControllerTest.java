@@ -8,7 +8,8 @@ import models.MovieOrTVShow;
 import models.Review;
 import models.ReviewsSummary;
 import org.apache.pekko.actor.testkit.typed.javadsl.TestKitJunitResource;
-import org.apache.pekko.actor.typed.ActorSystem;
+import org.apache.pekko.actor.ActorSystem;
+import org.apache.pekko.stream.Materializer;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -84,7 +85,8 @@ public class HomeControllerTest {
         Application application = new GuiceApplicationBuilder().build();
         Helpers.start(application);
 
-        ActorSystem<Void> actorSystem = testKit.system();
+        ActorSystem actorSystem = testKit.system().classicSystem();
+        Materializer materializer = application.injector().instanceOf(Materializer.class);
 
         controller = new HomeController(
                 application.injector().instanceOf(FormFactory.class),
@@ -96,7 +98,8 @@ public class HomeControllerTest {
                 tmdbService,
                 mediaDetailsService,
                 reviewsService,
-                actorSystem
+                actorSystem,
+                materializer
         );
     }
 
@@ -637,7 +640,8 @@ public class HomeControllerTest {
                 .loadGenres(anyString(), anyString(), anyMap(), anyMap());
         when(tmdbService.loadTargetLanguageConstant(anyString(), anyString())).thenReturn(10);
 
-        ActorSystem<Void> actorSystem = testKit.system();
+        ActorSystem actorSystem = testKit.system().classicSystem();
+        Materializer materializer = application.injector().instanceOf(Materializer.class);
 
         HomeController localController = new HomeController(
                 application.injector().instanceOf(FormFactory.class),
@@ -649,7 +653,8 @@ public class HomeControllerTest {
                 tmdbService,
                 mediaDetailsService,
                 reviewsService,
-                actorSystem
+                actorSystem,
+                materializer
         );
 
         Result result = localController.index(Helpers.fakeRequest(GET, "/flicklytics").build())
