@@ -10,14 +10,24 @@ ws.onmessage = (event) => {
 
 // Function to append results to the UI
 function appendResult(item, category) {
-    const resultsContainer = document.querySelector("#results");
+    // Find the latest results container for this category
+    let categoryDiv = document.querySelector(`.category-results[data-category="${category}"]`);
 
+    // If not found (should not happen), create one at the top
+    if (!categoryDiv) {
+        categoryDiv = document.createElement("div");
+        categoryDiv.classList.add("category-results");
+        categoryDiv.dataset.category = category;
+        document.querySelector("#results").prepend(categoryDiv);
+    }
+
+    let html = "";
     if (category.toLowerCase() === "person") {
         const photoButton = item.profile_path
             ? `<a href="https://image.tmdb.org/t/p/w500${item.profile_path}" target="_blank" class="btn btn-outline-primary btn-sm float-end ms-3">Photo</a>`
             : "";
 
-        const html = `
+        html = `
             <div class="card mb-3 shadow-sm p-3">
                 <div class="card-body">
                     ${photoButton}
@@ -34,7 +44,7 @@ function appendResult(item, category) {
                 </div>
             </div>
         `;
-        resultsContainer.insertAdjacentHTML("beforeend", html);
+        categoryDiv.insertAdjacentHTML("beforeend", html);
         return;
     }
 
@@ -60,7 +70,7 @@ function appendResult(item, category) {
         `;
     }
 
-    const html = `
+    html = `
         <div class="card mb-3 shadow-sm p-3">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
@@ -85,24 +95,31 @@ function appendResult(item, category) {
         </div>
     `;
 
-    resultsContainer.insertAdjacentHTML("beforeend", html);
+    categoryDiv.insertAdjacentHTML("beforeend", html);
 }
 
 // Send a search query + category as JSON to the server
 function search(query, category) {
     const resultsContainer = document.querySelector("#results");
-    resultsContainer.innerHTML = "";
 
-    const header = `
+    // Create a new header div for this search
+    const header = document.createElement("div");
+    header.classList.add("search-block");
+
+    header.innerHTML = `
         <div class="mb-3 mt-4">
             <h4>
                 Search terms: ${query}.
                 Category: ${category}.
             </h4>
         </div>
+        <div class="category-results" data-category="${category}"></div>
     `;
-    resultsContainer.insertAdjacentHTML("afterbegin", header);
 
+    // Insert the new search block at the top of the results container
+    resultsContainer.prepend(header);
+
+    // Send the search to the server
     ws.send(JSON.stringify({
         query: query,
         category: category
