@@ -1,5 +1,5 @@
 @(searchForm: Form[forms.SearchForm])(implicit request: Http.Request,
-        messages: MessagesProvider, resultsJson: String = null)
+        messages: MessagesProvider, resultsJson: String = null, webJarsUtil: org.webjars.play.WebJarsUtil)
 
 @import play.api.libs.json._
 
@@ -10,45 +10,26 @@
             <div class="text-center card shadow-sm p-3 m-auto mb-3">
                 <h1 class="mb-0 text-center">Welcome to FlickLytics</h1>
 
-                @helper.form(routes.HomeController.search(), Symbol("method") -> "POST") {
-
-                    <div id="search_form" class="d-flex align-items-end gap-4">
-                        <div class="flex-grow-1">
-                        @helper.inputText(
-                            searchForm("query"),
-                            Symbol("_label") -> null,
-                            Symbol("class") -> {
-                                if(searchForm("query").hasErrors) "form-control is-invalid" else "form-control"
-                            },
-                            Symbol("placeholder") -> "Enter search terms",
-                            Symbol("_showConstraints") -> false
-                        )
-                        </div>
-
-                        <div class="flex-grow-1">
-                        @helper.select(
-                            searchForm("category"),
-                            options = Seq(
-                                "movie" -> "Movie",
-                                "tv" -> "TV Show",
-                                "person" -> "Person"
-                            ),
-                            Symbol("_label") -> null,
-                            Symbol("class") -> {
-                                if(searchForm("category").hasErrors) "form-select is-invalid" else "form-select"
-                            },
-                            Symbol("_default") -> "Select a category",
-                            Symbol("_showConstraints") -> false
-                        )
-                        </div>
-
-                        <div class="flex-grow-1 mb-3">
-                            <button type="submit" class="btn btn-primary w-100">
-                                Go
-                            </button>
-                        </div>
+                <form id="search_form" class="d-flex align-items-end gap-4 mt-3">
+                    <div class="flex-grow-1">
+                        <input type="text" id="queryInput" class="form-control" placeholder="Enter search terms">
                     </div>
-                }
+
+                    <div class="flex-grow-1">
+                        <select id="categoryInput" class="form-select">
+                            <option value="">Select a category</option>
+                            <option value="movie">Movie</option>
+                            <option value="tv">TV Show</option>
+                            <option value="person">Person</option>
+                        </select>
+                    </div>
+
+                    <div class="flex-grow-1">
+                        <button type="submit" class="btn btn-primary w-100">
+                            Go
+                        </button>
+                    </div>
+                </form>
             </div>
 
             <div id="results">

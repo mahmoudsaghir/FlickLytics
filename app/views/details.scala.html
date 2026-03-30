@@ -1,6 +1,6 @@
 @(itemType: String, details: com.fasterxml.jackson.databind.JsonNode, overview: String,
-        scores: models.Readability.ReadabilityScores,
-        request: play.mvc.Http.Request, messages: play.i18n.Messages)
+        scores: models.Readability.ReadabilityScores)(implicit request: play.mvc.Http.Request,
+        messages: play.i18n.Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
 
 @main("Details") {
     <div class="container mt-4">

@@ -1,6 +1,7 @@
 package controllers;
 
 import actors.GlobalDiversityActor;
+import actors.SearchWebSocketActor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -10,10 +11,14 @@ import models.FinancialPerformance;
 import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
 import models.PersonStats;
-import org.apache.pekko.actor.typed.ActorRef;
-import org.apache.pekko.actor.typed.ActorSystem;
-import org.apache.pekko.actor.typed.Props;
-import org.apache.pekko.actor.typed.javadsl.AskPattern;
+import org.apache.pekko.actor.ActorRef;
+import org.apache.pekko.actor.ActorSystem;
+import org.apache.pekko.actor.Props;
+import org.apache.pekko.pattern.Patterns;
+import org.apache.pekko.stream.Materializer;
+import org.apache.pekko.stream.OverflowStrategy;
+import org.webjars.play.WebJarsUtil;
+import play.libs.streams.ActorFlow;
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
@@ -23,6 +28,7 @@ import play.libs.concurrent.ClassLoaderExecutionContext;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
+import play.mvc.WebSocket;
 import services.*;
 
 import javax.inject.Inject;
@@ -74,8 +80,13 @@ public class HomeController extends Controller {
     private final GlobalDiversityService globalDiversityService;
     private final TmdbService tmdbService;
 
-    private final ActorSystem<Void> actorSystem;
-    private final ActorRef<GlobalDiversityActor.Command> globalDiversityActor;
+    private final ActorSystem actorSystem;
+    private final ActorRef globalDiversityActor;
+
+    private final Materializer materializer;
+
+    @Inject
+    WebJarsUtil webJarsUtil;
 
     /**
      * Constructs the HomeController with all required dependencies.
@@ -98,7 +109,7 @@ public class HomeController extends Controller {
                           ClassLoaderExecutionContext clExecutionContext, Config config,
                           GlobalDiversityService globalDiversityService, GenreService genreService,
                           TmdbService tmdbService, MediaDetailsService mediaDetailsService,
-                          ReviewsService reviewsService, ActorSystem<Void> actorSystem) {
+                          ReviewsService reviewsService, ActorSystem actorSystem, Materializer materializer) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
@@ -108,6 +119,7 @@ public class HomeController extends Controller {
         this.tmdbService = tmdbService;
         this.mediaDetailsService = mediaDetailsService;
         this.reviewsService = reviewsService;
+        this.materializer = materializer;
 
         // load genres at startup to populate the genre maps
         try {
@@ -119,10 +131,9 @@ public class HomeController extends Controller {
         this.targetLanguageConstant = this.tmdbService.loadTargetLanguageConstant(apiUrl, tmdbToken);
 
         this.actorSystem = actorSystem;
-        this.globalDiversityActor = actorSystem.systemActorOf(
-                GlobalDiversityActor.create(globalDiversityService),
-                "globalDiversityActor-" + UUID.randomUUID(),
-                Props.empty()
+        this.globalDiversityActor = actorSystem.actorOf(
+                Props.create(GlobalDiversityActor.class, this.globalDiversityService),
+                "globalDiversityActor-" + UUID.randomUUID()
         );
     }
 
@@ -147,7 +158,7 @@ public class HomeController extends Controller {
         Messages messages = messagesApi.preferred(request);
         Form<SearchForm> form = formFactory.form(SearchForm.class);
         return CompletableFuture.completedFuture(
-                ok(views.html.index.render(form, request, messages, null))
+                ok(views.html.index.render(form, request, messages, null, webJarsUtil))
                         .withNewSession()
         );
     }
@@ -188,7 +199,7 @@ public class HomeController extends Controller {
 
             FinancialPerformance fp = new FinancialPerformance(budget, revenue);
 
-            return ok(views.html.financialPerformance.render(fp, request, messages));
+            return ok(views.html.financialPerformance.render(fp, request, messages, webJarsUtil));
         });
     }
 
@@ -246,7 +257,7 @@ public class HomeController extends Controller {
                 }, clExecutionContext.current())
                 .thenApply(stats -> {
                     Messages messages = messagesApi.preferred(request);
-                    return ok(views.html.personStats.render(stats, request, messages));
+                    return ok(views.html.personStats.render(stats, request, messages, webJarsUtil));
                 });
     }
 
@@ -288,7 +299,7 @@ public class HomeController extends Controller {
 
         if (form.hasErrors()) {
             // Render the page with the submitted form to show errors
-            return CompletableFuture.completedFuture(ok(views.html.index.render(form, request, messages, null)));
+            return CompletableFuture.completedFuture(ok(views.html.index.render(form, request, messages, null, webJarsUtil)));
         }
 
         String query = form.get().query;
@@ -297,7 +308,7 @@ public class HomeController extends Controller {
         // Run API call asynchronously using supplyAsync and ClassLoaderExecutionContext
         return CompletableFuture.supplyAsync(() -> {
                     try {
-                        JsonNode rootNode = tmdbService.search(apiUrl, tmdbToken, query, category);
+                        JsonNode rootNode = tmdbService.search(apiUrl, tmdbToken, query, category, 1);
 
                         ArrayNode resultsArray = (ArrayNode) rootNode.get("results");
 
@@ -420,7 +431,7 @@ public class HomeController extends Controller {
                             .map(searchCache::get)
                             .forEach(historyArray::add);
 
-                    return ok(views.html.index.render(form, request, messages, historyArray.toString()))
+                    return ok(views.html.index.render(form, request, messages, historyArray.toString(), webJarsUtil))
                             .addingToSession(request, "searchHistory", updatedIds);
                 });
     }
@@ -439,25 +450,39 @@ public class HomeController extends Controller {
         try {
             JsonNode detailsAndTranslationRoot = tmdbService.getDetailsAndTranslations(apiUrl, tmdbToken, category, id.longValue());
 
-            CompletionStage<GlobalDiversityResult> resultFuture = AskPattern.ask(
-                    globalDiversityActor,
-                    replyTo -> new GlobalDiversityActor.ComputeDiversity(category, detailsAndTranslationRoot, targetLanguageConstant, replyTo),
-                    Duration.ofSeconds(3),
-                    actorSystem.scheduler()
+            // Use classic ask pattern to send to the classic actor
+            ActorRef classicActor = globalDiversityActor;
+            Duration timeout = Duration.ofSeconds(3);
+            Object askMsg = new actors.GlobalDiversityActor.ComputeDiversity(
+                    category,
+                    detailsAndTranslationRoot,
+                    targetLanguageConstant,
+                    classicActor // replyTo will be handled by ask
             );
-
-            return resultFuture.thenApply(globalDiversityResult ->
-                    ok(views.html.globalDiversity.render(
+            CompletionStage<Object> resultFuture = Patterns.ask(
+                    classicActor,
+                    new actors.GlobalDiversityActor.ComputeDiversity(
                             category,
-                            id,
-                            globalDiversityResult.mediaName,
-                            globalDiversityResult.translationDensity,
-                            globalDiversityResult.localizationIndex,
-                            request,
-                            messages
-                    ))
+                            detailsAndTranslationRoot,
+                            targetLanguageConstant,
+                            ActorRef.noSender()
+                    ),
+                    timeout
             );
 
+            return resultFuture.thenApply(resultObj -> {
+                GlobalDiversityResult globalDiversityResult = (GlobalDiversityResult) resultObj;
+                return ok(views.html.globalDiversity.render(
+                        category,
+                        id,
+                        globalDiversityResult.mediaName,
+                        globalDiversityResult.translationDensity,
+                        globalDiversityResult.localizationIndex,
+                        request,
+                        messages,
+                        webJarsUtil
+                ));
+            });
         } catch (Exception e) {
             e.printStackTrace();
             return CompletableFuture.completedFuture(internalServerError("Failed to fetch TMDb data"));
@@ -518,7 +543,8 @@ public class HomeController extends Controller {
                     result.overview,
                     result.scores,
                     request,
-                    messages
+                    messages,
+                    webJarsUtil
             ));
         });
     }
@@ -554,8 +580,22 @@ public class HomeController extends Controller {
                     id,
                     reviewsSummary,
                     request,
-                    messages
+                    messages,
+                    webJarsUtil
             ));
         });
+    }
+
+    public WebSocket ws() {
+        System.out.println("WebSocket connection initiated");
+        return WebSocket.Text.accept(request ->
+                ActorFlow.actorRef(
+                        out -> Props.create(SearchWebSocketActor.class, out, tmdbService, apiUrl, tmdbToken),
+                        16,
+                        OverflowStrategy.dropBuffer(),
+                        actorSystem,
+                        materializer
+                )
+        );
     }
 }

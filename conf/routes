@@ -24,3 +24,6 @@ GET   /flicklytics/financial-performance/:id        controllers.HomeController.f
 
 # Map reviews and sentiment analysis for movies and TV shows
 GET   /flicklytics/reviews/:type/:id   controllers.HomeController.reviews(type: String, id: Long, request: Request)
+
+# WebSocket endpoint for real-time search updates
+GET   /ws/search   controllers.HomeController.ws()
