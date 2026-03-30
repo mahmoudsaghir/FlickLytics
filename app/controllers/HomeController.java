@@ -1,5 +1,6 @@
 package controllers;
 
+import actors.GlobalDiversityActor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -9,6 +10,10 @@ import models.FinancialPerformance;
 import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
 import models.PersonStats;
+import org.apache.pekko.actor.typed.ActorRef;
+import org.apache.pekko.actor.typed.ActorSystem;
+import org.apache.pekko.actor.typed.Props;
+import org.apache.pekko.actor.typed.javadsl.AskPattern;
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
@@ -21,6 +26,7 @@ import play.mvc.Result;
 import services.*;
 
 import javax.inject.Inject;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +41,6 @@ import java.util.stream.StreamSupport;
  * Main controller for the FlickLytics web application.
  * Handles HTTP requests and responses for the search functionality and person statistics pages.
  * All controller actions return CompletionStage for asynchronous, non-blocking processing.
- *
  * This is the single controller for the entire application as per requirements,
  * with business logic delegated to service and model classes.
  *
@@ -69,6 +74,9 @@ public class HomeController extends Controller {
     private final GlobalDiversityService globalDiversityService;
     private final TmdbService tmdbService;
 
+    private final ActorSystem<Void> actorSystem;
+    private final ActorRef<GlobalDiversityActor.Command> globalDiversityActor;
+
     /**
      * Constructs the HomeController with all required dependencies.
      * Dependencies are injected by Play Framework's Guice injector.
@@ -82,6 +90,7 @@ public class HomeController extends Controller {
      * @param tmdbService            The TMDb service for API communication
      * @param mediaDetailsService    The Media Details service for readability calculations
      * @param reviewsService         The Reviews service for sentiment analysis
+     * @param actorSystem            The Pekko Actor System for concurrency
      * @author Mahmoud Saghir
      */
     @Inject
@@ -89,7 +98,7 @@ public class HomeController extends Controller {
                           ClassLoaderExecutionContext clExecutionContext, Config config,
                           GlobalDiversityService globalDiversityService, GenreService genreService,
                           TmdbService tmdbService, MediaDetailsService mediaDetailsService,
-                          ReviewsService reviewsService) {
+                          ReviewsService reviewsService, ActorSystem<Void> actorSystem) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
@@ -108,6 +117,13 @@ public class HomeController extends Controller {
         }
         // load the target language constant at startup
         this.targetLanguageConstant = this.tmdbService.loadTargetLanguageConstant(apiUrl, tmdbToken);
+
+        this.actorSystem = actorSystem;
+        this.globalDiversityActor = actorSystem.systemActorOf(
+                GlobalDiversityActor.create(globalDiversityService),
+                "globalDiversityActor-" + UUID.randomUUID(),
+                Props.empty()
+        );
     }
 
     /**
@@ -140,7 +156,6 @@ public class HomeController extends Controller {
      * Retrieves movie details from the TMDB service, extracts the
      * budget and revenue values, creates a FinancialPerformance object, and
      * renders the financial performance view.
-     *
      * This action is asynchronous and non-blocking.
      * Error handling is included to report API failures.
      *
@@ -180,7 +195,6 @@ public class HomeController extends Controller {
     /**
      * Handles GET requests to display a person's "known for" items and statistics.
      * Retrieves data asynchronously from the TMDb API and displays comprehensive statistics.
-     *
      * This action is asynchronous and non-blocking, returning a CompletionStage.
      * Error handling is included to gracefully report any API failures.
      *
@@ -421,25 +435,19 @@ public class HomeController extends Controller {
      */
     public CompletionStage<Result> globalDiversity(Http.Request request, String category, Integer id) {
         Messages messages = messagesApi.preferred(request);
-        return CompletableFuture.supplyAsync(() -> {
-                    try {
-                        JsonNode detailsAndTranslationRoot = tmdbService.getDetailsAndTranslations(apiUrl, tmdbToken, category, id.longValue());
 
-                        return globalDiversityService.compute(
-                                category,
-                                detailsAndTranslationRoot,
-                                this.targetLanguageConstant
-                        );
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        return "{\"error\":\"Failed to fetch TMDB data\"}";
-                    }
+        try {
+            JsonNode detailsAndTranslationRoot = tmdbService.getDetailsAndTranslations(apiUrl, tmdbToken, category, id.longValue());
 
-                }, clExecutionContext.current())
-                .thenApply(result -> {
-                    GlobalDiversityResult globalDiversityResult = (GlobalDiversityResult) result;
+            CompletionStage<GlobalDiversityResult> resultFuture = AskPattern.ask(
+                    globalDiversityActor,
+                    replyTo -> new GlobalDiversityActor.ComputeDiversity(category, detailsAndTranslationRoot, targetLanguageConstant, replyTo),
+                    Duration.ofSeconds(3),
+                    actorSystem.scheduler()
+            );
 
-                    return ok(views.html.globalDiversity.render(
+            return resultFuture.thenApply(globalDiversityResult ->
+                    ok(views.html.globalDiversity.render(
                             category,
                             id,
                             globalDiversityResult.mediaName,
@@ -447,9 +455,15 @@ public class HomeController extends Controller {
                             globalDiversityResult.localizationIndex,
                             request,
                             messages
-                    ));
-                });
+                    ))
+            );
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return CompletableFuture.completedFuture(internalServerError("Failed to fetch TMDb data"));
+        }
     }
+
     /**
      * An action that renders the movie details page with readability scores.
      *

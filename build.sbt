@@ -14,7 +14,8 @@ libraryDependencies ++= Seq(
   "junit" % "junit" % "4.13.2" % Test,
   "org.mockito" % "mockito-core" % "5.22.0" % Test,
   "org.mockito" % "mockito-inline" % "5.2.0" % Test,
-  "com.typesafe.play" %% "play-test" % "2.9.0" % Test
+  "com.typesafe.play" %% "play-test" % "2.9.0" % Test,
+  "org.apache.pekko" %% "pekko-actor-testkit-typed" % "1.0.3" % Test
 )
 
 javacOptions ++= Seq(
