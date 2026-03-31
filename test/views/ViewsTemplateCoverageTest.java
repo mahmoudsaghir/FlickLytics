@@ -10,6 +10,7 @@ import models.Review;
 import models.ReviewsSummary;
 import org.junit.Before;
 import org.junit.Test;
+import org.webjars.play.WebJarsUtil;
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
@@ -42,21 +43,23 @@ public class ViewsTemplateCoverageTest extends WithApplication {
     private Http.Request request;
     private Messages messages;
     private Form<SearchForm> searchForm;
+    private WebJarsUtil webJarsUtil;
 
     @Before
     public void setUp() {
         request = Helpers.fakeRequest().build();
         messages = app.injector().instanceOf(MessagesApi.class).preferred(request);
         searchForm = app.injector().instanceOf(FormFactory.class).form(SearchForm.class);
+        webJarsUtil = app.injector().instanceOf(org.webjars.play.WebJarsUtil.class);
     }
 
     @Test
     public void testIndexTemplateBranchesAndObjectHelpers() throws Exception {
         // Cover resultsJson short-circuit branches: null, empty, non-empty
-        String nullHtml = views.html.index.render(searchForm, request, messages, null).body();
+        String nullHtml = views.html.index.render(searchForm, request, messages, null, webJarsUtil).body();
         assertTrue(nullHtml.contains("Welcome to FlickLytics"));
 
-        String emptyHtml = views.html.index.render(searchForm, request, messages, "").body();
+        String emptyHtml = views.html.index.render(searchForm, request, messages, "", webJarsUtil).body();
         assertTrue(emptyHtml.contains("Welcome to FlickLytics"));
 
         String resultsJson = "["
@@ -65,7 +68,7 @@ public class ViewsTemplateCoverageTest extends WithApplication {
                 + "{\"query\":\"dark\",\"category\":\"movie\",\"total_results\":1,"
                 + "\"results\":[{\"id\":1,\"title\":\"Dark\",\"link\":\"/movie/1\",\"language\":\"en\",\"genres\":[\"Drama\"],\"release_date\":\"2020-01-01\",\"popularity\":2.2,\"vote_average\":8.0}]}"
                 + "]";
-        String populatedHtml = views.html.index.render(searchForm, request, messages, resultsJson).body();
+        String populatedHtml = views.html.index.render(searchForm, request, messages, resultsJson, webJarsUtil).body();
         assertTrue(populatedHtml.contains("Known for"));
         assertTrue(populatedHtml.contains("Financial Performance"));
 
@@ -86,7 +89,7 @@ public class ViewsTemplateCoverageTest extends WithApplication {
         movieTrue.put("homepage", "https://movie.example");
         movieTrue.set("genres", Json.newArray().add(Json.newObject().put("name", "Action")));
         movieTrue.set("production_companies", Json.newArray().add(Json.newObject().put("name", "Studio A")));
-        String movieHtmlTrue = views.html.details.render("movie", movieTrue, "Movie overview", scores, request, messages).body();
+        String movieHtmlTrue = views.html.details.render("movie", movieTrue, "Movie overview", scores, request, messages, webJarsUtil).body();
         assertTrue(movieHtmlTrue.contains("Movie Details"));
         assertTrue(movieHtmlTrue.contains("Studio A"));
 
@@ -96,7 +99,7 @@ public class ViewsTemplateCoverageTest extends WithApplication {
         movieFalse.put("homepage", "");
         movieFalse.put("genres", "not-array");
         movieFalse.put("production_companies", "not-array");
-        String movieHtmlFalse = views.html.details.render("movie", movieFalse, "Movie overview", scores, request, messages).body();
+        String movieHtmlFalse = views.html.details.render("movie", movieFalse, "Movie overview", scores, request, messages, webJarsUtil).body();
         assertTrue(movieHtmlFalse.contains("N/A"));
 
         // TV true branches
@@ -105,7 +108,7 @@ public class ViewsTemplateCoverageTest extends WithApplication {
         tvTrue.put("homepage", "https://tv.example");
         tvTrue.set("genres", Json.newArray().add(Json.newObject().put("name", "Drama")));
         tvTrue.set("networks", Json.newArray().add(Json.newObject().put("name", "HBO")));
-        String tvHtmlTrue = views.html.details.render("tv", tvTrue, "TV overview", scores, request, messages).body();
+        String tvHtmlTrue = views.html.details.render("tv", tvTrue, "TV overview", scores, request, messages, webJarsUtil).body();
         assertTrue(tvHtmlTrue.contains("TV Show Details"));
         assertTrue(tvHtmlTrue.contains("HBO"));
 
@@ -115,22 +118,22 @@ public class ViewsTemplateCoverageTest extends WithApplication {
         tvFalse.put("homepage", "");
         tvFalse.put("genres", "not-array");
         tvFalse.put("networks", "not-array");
-        String tvHtmlFalse = views.html.details.render("tv", tvFalse, "TV overview", scores, request, messages).body();
+        String tvHtmlFalse = views.html.details.render("tv", tvFalse, "TV overview", scores, request, messages, webJarsUtil).body();
         assertTrue(tvHtmlFalse.contains("N/A"));
 
         // Null itemType path covers remaining Scala equality branches for itemType checks
-        String nullTypeHtml = views.html.details.render(null, Json.newObject(), "Overview", scores, request, messages).body();
+        String nullTypeHtml = views.html.details.render(null, Json.newObject(), "Overview", scores, request, messages, webJarsUtil).body();
         assertTrue(nullTypeHtml.contains("TV Show Details"));
 
         // Non-matching non-null itemType covers the last comparison branch
-        String otherTypeHtml = views.html.details.render("documentary", Json.newObject(), "Overview", scores, request, messages).body();
+        String otherTypeHtml = views.html.details.render("documentary", Json.newObject(), "Overview", scores, request, messages, webJarsUtil).body();
         assertTrue(otherTypeHtml.contains("TV Show Details"));
 
         // Non-interned strings exercise additional Scala equality bytecode paths
         String nonInternMovie = new String("movie");
         String nonInternTv = new String("tv");
-        String movieNonInternHtml = views.html.details.render(nonInternMovie, movieTrue, "Movie overview", scores, request, messages).body();
-        String tvNonInternHtml = views.html.details.render(nonInternTv, tvTrue, "TV overview", scores, request, messages).body();
+        String movieNonInternHtml = views.html.details.render(nonInternMovie, movieTrue, "Movie overview", scores, request, messages, webJarsUtil).body();
+        String tvNonInternHtml = views.html.details.render(nonInternTv, tvTrue, "TV overview", scores, request, messages, webJarsUtil).body();
         assertTrue(movieNonInternHtml.contains("Movie Details"));
         assertTrue(tvNonInternHtml.contains("TV Show Details"));
 
@@ -145,7 +148,7 @@ public class ViewsTemplateCoverageTest extends WithApplication {
         PersonStats statsMissing = new PersonStats(Collections.singletonList(
                 new MovieOrTVShow("1", "NoYear", 1.0, 2.0, 3, "")
         ));
-        String missingHtml = views.html.personStats.render(statsMissing, request, messages).body();
+        String missingHtml = views.html.personStats.render(statsMissing, request, messages, webJarsUtil).body();
         assertTrue(missingHtml.contains("Person Statistics"));
 
         // Age N/A and profile placeholder branch
@@ -153,7 +156,7 @@ public class ViewsTemplateCoverageTest extends WithApplication {
                 new MovieOrTVShow("3", "AgeUnknown", 1.2, 2.2, 5, "")
         ));
         statsAgeNa.setPersonDetails("Unknown Age", "", "Acting", 2, "", "");
-        String ageNaHtml = views.html.personStats.render(statsAgeNa, request, messages).body();
+        String ageNaHtml = views.html.personStats.render(statsAgeNa, request, messages, webJarsUtil).body();
         assertTrue(ageNaHtml.contains("N/A"));
         assertTrue(ageNaHtml.contains("person-photo-placeholder"));
 
@@ -162,7 +165,7 @@ public class ViewsTemplateCoverageTest extends WithApplication {
                 new MovieOrTVShow("2", "WithYear", 2.0, 3.0, 4, "2024")
         ));
         statsFull.setPersonDetails("Test Person", "/photo.jpg", "Acting", 2, "1990-01-01", "Somewhere");
-        String fullHtml = views.html.personStats.render(statsFull, request, messages).body();
+        String fullHtml = views.html.personStats.render(statsFull, request, messages, webJarsUtil).body();
         assertTrue(fullHtml.contains("Test Person"));
         assertTrue(fullHtml.contains("photo.jpg"));
         assertTrue(fullHtml.contains("(2024)"));
@@ -179,7 +182,7 @@ public class ViewsTemplateCoverageTest extends WithApplication {
                 new Review("B", "Bad", ":-(", 0.0, 100.0),
                 new Review("C", "Okay", ":-|", 0.0, 0.0)
         ));
-        String html = views.html.reviews.render("movie", 1L, summary, request, messages).body();
+        String html = views.html.reviews.render("movie", 1L, summary, request, messages, webJarsUtil).body();
         assertTrue(html.contains("Individual Reviews"));
 
         assertNotNull(views.html.reviews$.MODULE$.f());
@@ -189,7 +192,7 @@ public class ViewsTemplateCoverageTest extends WithApplication {
 
     @Test
     public void testGlobalDiversityTemplateObjectHelpers() throws Exception {
-        String html = views.html.globalDiversity.render("movie", 1, "Test", 0.5, 0.6, request, messages).body();
+        String html = views.html.globalDiversity.render("movie", 1, "Test", 0.5, 0.6, request, messages, webJarsUtil).body();
         assertTrue(html.contains("Global Diversity Analysis"));
 
         assertNotNull(views.html.globalDiversity$.MODULE$.f());
@@ -200,7 +203,7 @@ public class ViewsTemplateCoverageTest extends WithApplication {
     @Test
     public void testFinancialPerformanceTemplateObjectHelpers() throws Exception {
         FinancialPerformance fp = new FinancialPerformance(100_000_000L, 250_000_000L);
-        String html = views.html.financialPerformance.render(fp, request, messages).body();
+        String html = views.html.financialPerformance.render(fp, request, messages, webJarsUtil).body();
         assertTrue(html.contains("Financial Performance"));
 
         assertNotNull(views.html.financialPerformance$.MODULE$.f());
@@ -211,7 +214,7 @@ public class ViewsTemplateCoverageTest extends WithApplication {
     @Test
     public void testMainTemplateObjectHelpersAndRender() throws Exception {
         // Explicitly call render to cover main$.render line
-        String html = views.html.main$.MODULE$.render("Title", play.twirl.api.Html.apply("<p>Body</p>")).body();
+        String html = views.html.main$.MODULE$.render("Title", play.twirl.api.Html.apply("<p>Body</p>"), request, webJarsUtil).body();
         assertTrue(html.contains("<title>Title</title>"));
         assertTrue(html.contains("Body"));
 

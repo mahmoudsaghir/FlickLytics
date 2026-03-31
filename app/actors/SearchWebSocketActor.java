@@ -2,6 +2,7 @@ package actors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.pekko.actor.AbstractActor;
 import org.apache.pekko.actor.ActorRef;
 import org.apache.pekko.actor.Cancellable;
@@ -85,19 +86,27 @@ public class SearchWebSocketActor extends AbstractActor {
             if (searchHistory.size() > 10) {
                 searchHistory.remove(0);
             }
-            List<JsonNode> results;
+            ObjectNode responseNode;
             try {
-                results = tmdbService.searchNow(apiUrl, token, currentQuery, currentCategory, currentPage);
+                responseNode = tmdbService.searchNow(apiUrl, token, currentQuery, currentCategory, currentPage);
             } catch (Exception e) {
                 getContext().getSystem().log().error("TMDb API failed", e);
                 out.tell("{\"type\":\"error\",\"message\":\"API failure\"}", getSelf());
                 return;
             }
 
-            results.stream().limit(10).forEach(r -> {
+            int totalResults = responseNode.path("total_results").asInt(0);
+            JsonNode resultsArray = responseNode.path("results");
+
+            // Send total_results first
+            out.tell("{\"type\":\"total_results\",\"total_results\":" + totalResults + "}", getSelf());
+
+            resultsArray.forEach(r -> {
                 int id = r.get("id").asInt();
-                sentIds.add(id);
-                out.tell(r.toString(), getSelf());
+                if (!sentIds.contains(id)) {
+                    sentIds.add(id);
+                    out.tell(r.toString(), getSelf());
+                }
             });
 
             if (tickTask != null && !tickTask.isCancelled()) {
@@ -124,17 +133,23 @@ public class SearchWebSocketActor extends AbstractActor {
             return;
         }
 
-        List<JsonNode> results;
+        ObjectNode responseNode;
         try {
-            results = tmdbService.searchNow(apiUrl, token, currentQuery, currentCategory, currentPage);
+            responseNode = tmdbService.searchNow(apiUrl, token, currentQuery, currentCategory, currentPage);
         } catch (Exception e) {
             getContext().getSystem().log().error("TMDb API failed", e);
             out.tell("{\"type\":\"error\",\"message\":\"API failure\"}", getSelf());
             throw e;
         }
 
+        int totalResults = responseNode.path("total_results").asInt(0);
+        JsonNode resultsArray = responseNode.path("results");
+
+        // Send total_results first
+        out.tell("{\"type\":\"total_results\",\"total_results\":" + totalResults + "}", getSelf());
+
         boolean foundNew = false;
-        for (JsonNode r : results) {
+        for (JsonNode r : resultsArray) {
             int id = r.get("id").asInt();
 
             if (!sentIds.contains(id)) {

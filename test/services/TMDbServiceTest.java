@@ -846,7 +846,7 @@ public class TMDbServiceTest {
                             eq("http://api.tmdb.org/3/search/movie?query=Spider%20Man"), eq("token")))
                     .thenReturn(mockNode);
 
-            JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Spider Man", "movie");
+            JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Spider Man", "movie", 1);
 
             assertSame(mockNode, result);
             mockedUtils.verify(() -> Utils.sendGetRequest(
@@ -869,7 +869,7 @@ public class TMDbServiceTest {
                             eq("http://api.tmdb.org/3/search/tv?query=Breaking%20Bad"), eq("token")))
                     .thenReturn(mockNode);
 
-            JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Breaking Bad", "tv");
+            JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Breaking Bad", "tv", 1);
 
             assertSame(mockNode, result);
         }
@@ -890,7 +890,7 @@ public class TMDbServiceTest {
                             eq("http://api.tmdb.org/3/search/person?query=Tom%20Hanks"), eq("token")))
                     .thenReturn(mockNode);
 
-            JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Tom Hanks", "person");
+            JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Tom Hanks", "person", 1);
 
             assertSame(mockNode, result);
         }
@@ -910,7 +910,7 @@ public class TMDbServiceTest {
             mockedUtils.when(() -> Utils.sendGetRequest(eq("http://api.tmdb.org/3/search/"), eq("token")))
                     .thenReturn(mockNode);
 
-            JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Ignored Query", "collection");
+            JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Ignored Query", "collection", 1);
 
             assertSame(mockNode, result);
             mockedUtils.verify(() -> Utils.sendGetRequest(eq("http://api.tmdb.org/3/search/"), eq("token")));
@@ -930,7 +930,7 @@ public class TMDbServiceTest {
             mockedUtils.when(() -> Utils.sendGetRequest(anyString(), anyString()))
                     .thenThrow(new Exception("API failure"));
 
-            tmdbService.search("http://api.tmdb.org/3/", "token", "Any Query", "movie");
+            tmdbService.search("http://api.tmdb.org/3/", "token", "Any Query", "movie", 1);
         }
     }
 

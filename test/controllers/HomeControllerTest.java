@@ -554,7 +554,7 @@ public class HomeControllerTest {
         root.put("total_results", 1);
         root.set("results", Json.newArray().add(item));
 
-        when(tmdbService.search(anyString(), anyString(), eq("matrix"), eq("movie"))).thenReturn(root);
+        when(tmdbService.search(anyString(), anyString(), eq("matrix"), eq("movie"), 1)).thenReturn(root);
 
         Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
                 .bodyForm(java.util.Map.of("query", "matrix", "category", "movie"))
@@ -573,7 +573,7 @@ public class HomeControllerTest {
      */
     @Test
     public void testSearchApiFailurePath() throws Exception {
-        when(tmdbService.search(anyString(), anyString(), eq("bad"), eq("tv")))
+        when(tmdbService.search(anyString(), anyString(), eq("bad"), eq("tv"), 1))
                 .thenThrow(new RuntimeException("API down"));
 
         Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")

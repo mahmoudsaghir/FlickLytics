@@ -1,7 +1,9 @@
 package services;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.Utils;
+import play.libs.Json;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -181,21 +183,26 @@ public class TmdbService {
      * Fetches search results immediately (used by WebSocket reactive updates).
      * Returns the list of results array from TMDb response.
      */
-    public List<JsonNode> searchNow(String apiUrl, String token, String query, String category, int currentPage) {
-        List<JsonNode> results = new ArrayList<>();
+    public ObjectNode searchNow(String apiUrl, String token, String query, String category, int currentPage) {
+        ObjectNode resultNode = Json.newObject();
 
         try {
             JsonNode response = search(apiUrl, token, query, category, currentPage);
 
             if (response.has("results") && response.get("results").isArray()) {
-                for (JsonNode item : response.get("results")) {
-                    results.add(item);
-                }
+                resultNode.set("results", response.get("results"));
+            } else {
+                resultNode.set("results", Json.newArray());
             }
+
+            resultNode.put("total_results", response.path("total_results").asInt(0));
 
         } catch (Exception e) {
             e.printStackTrace();
+            resultNode.set("results", Json.newArray());
+            resultNode.put("total_results", 0);
         }
-        return results;
+
+        return resultNode;
     }
 }
