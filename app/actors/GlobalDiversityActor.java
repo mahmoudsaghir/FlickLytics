@@ -27,7 +27,6 @@ public class GlobalDiversityActor extends AbstractActor {
         public final String category;
         public final JsonNode detailsAndTranslationRoot;
         public final int targetLanguageConstant;
-        public final ActorRef replyTo;
 
         /**
          * Constructor for ComputeDiversity.
@@ -35,15 +34,12 @@ public class GlobalDiversityActor extends AbstractActor {
          * @param category movie or tv
          * @param detailsAndTranslationRoot details and translations
          * @param targetLanguageConstant normalization constant
-         * @param replyTo replyTo for sending the result back to the sender
          * @author Mahmoud Saghir
          */
-        public ComputeDiversity(String category, JsonNode detailsAndTranslationRoot, int targetLanguageConstant,
-                                ActorRef replyTo) {
+        public ComputeDiversity(String category, JsonNode detailsAndTranslationRoot, int targetLanguageConstant) {
             this.category = category;
             this.detailsAndTranslationRoot = detailsAndTranslationRoot;
             this.targetLanguageConstant = targetLanguageConstant;
-            this.replyTo = replyTo;
         }
     }
 
@@ -69,6 +65,6 @@ public class GlobalDiversityActor extends AbstractActor {
         logger.info("Received ComputeDiversity message: category={}, targetLanguageConstant={}", msg.category, msg.targetLanguageConstant);
         GlobalDiversityResult result = service.compute(msg.category, msg.detailsAndTranslationRoot, msg.targetLanguageConstant);
         logger.info("Computed GlobalDiversityResult: {}", result);
-        msg.replyTo.tell(result, getSelf());
+        getSender().tell(result, getSelf());
     }
 }

@@ -23,6 +23,19 @@ function initWebSocket() {
             return;
         }
 
+        // Handle total_results by updating the header of the latest search block
+        if (data.type === "total_results") {
+            if (latestCategoryDiv) {
+                const header = latestCategoryDiv.closest(".search-block").querySelector("h4");
+                if (header) {
+                    // Replace existing "Total results:" if already present, else append
+                    header.textContent = header.textContent.replace(/Total results: \d+/, '');
+                    header.textContent = header.textContent.trim() + ` Total results: ${data.total_results}`;
+                }
+            }
+            return;
+        }
+
         appendResult(data, latestCategoryDiv);
     };
 
