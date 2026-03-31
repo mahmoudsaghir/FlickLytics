@@ -9,6 +9,7 @@ import org.apache.pekko.actor.Props;
 import services.TmdbService;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -29,6 +30,8 @@ public class SearchWebSocketActor extends AbstractActor {
 
     private int emptyTicks = 0;
     private int currentPage = 1;
+
+    private final List<String> searchHistory = new ArrayList<>();
 
     public SearchWebSocketActor(ActorRef out, TmdbService tmdbService, String apiUrl, String token) {
         this.out = out;
@@ -75,8 +78,21 @@ public class SearchWebSocketActor extends AbstractActor {
             sentIds.clear();
             currentPage = 1;
             emptyTicks = 0;
+            // Notify UI to reset results
+            out.tell("{\"type\":\"reset\"}", getSelf());
 
-            List<JsonNode> results = tmdbService.searchNow(apiUrl, token, currentQuery, currentCategory, currentPage);
+            searchHistory.add(currentQuery + ":" + currentCategory);
+            if (searchHistory.size() > 10) {
+                searchHistory.remove(0);
+            }
+            List<JsonNode> results;
+            try {
+                results = tmdbService.searchNow(apiUrl, token, currentQuery, currentCategory, currentPage);
+            } catch (Exception e) {
+                getContext().getSystem().log().error("TMDb API failed", e);
+                out.tell("{\"type\":\"error\",\"message\":\"API failure\"}", getSelf());
+                return;
+            }
 
             results.stream().limit(10).forEach(r -> {
                 int id = r.get("id").asInt();
@@ -97,8 +113,8 @@ public class SearchWebSocketActor extends AbstractActor {
             );
 
         } catch (Exception e) {
-            e.printStackTrace();
             getContext().getSystem().log().error("Failed to parse incoming message: {}", message, e);
+            out.tell("{\"type\":\"error\",\"message\":\"Invalid request\"}", getSelf());
         }
     }
 
@@ -108,7 +124,14 @@ public class SearchWebSocketActor extends AbstractActor {
             return;
         }
 
-        List<JsonNode> results = tmdbService.searchNow(apiUrl, token, currentQuery, currentCategory, currentPage);
+        List<JsonNode> results;
+        try {
+            results = tmdbService.searchNow(apiUrl, token, currentQuery, currentCategory, currentPage);
+        } catch (Exception e) {
+            getContext().getSystem().log().error("TMDb API failed", e);
+            out.tell("{\"type\":\"error\",\"message\":\"API failure\"}", getSelf());
+            throw e;
+        }
 
         boolean foundNew = false;
         for (JsonNode r : results) {

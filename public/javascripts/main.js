@@ -1,25 +1,40 @@
-const ws = new WebSocket(document.body.dataset.wsUrl);
+let ws;
+let latestCategoryDiv = null;
 
-// Listen for messages from the server
-ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type === "heartbeat") return;
-    let category = document.querySelector("#categoryInput").value.trim();
-    appendResult(data, category);
-};
+function initWebSocket() {
+    ws = new WebSocket(document.body.dataset.wsUrl);
+
+    ws.onopen = () => {
+        console.log("WebSocket connection established");
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "heartbeat") return;
+
+        if (data.type === "reset") {
+            if (latestCategoryDiv) latestCategoryDiv.innerHTML = "";
+            return;
+        }
+
+        if (data.type === "error") {
+            alert(data.message || "An error occurred");
+            return;
+        }
+
+        appendResult(data, latestCategoryDiv);
+    };
+
+    ws.onclose = () => {
+        console.log("WebSocket closed, reconnecting in 2s...");
+        setTimeout(initWebSocket, 2000);
+    };
+}
 
 // Function to append results to the UI
-function appendResult(item, category) {
-    // Find the latest results container for this category
-    let categoryDiv = document.querySelector(`.category-results[data-category="${category}"]`);
-
-    // If not found (should not happen), create one at the top
-    if (!categoryDiv) {
-        categoryDiv = document.createElement("div");
-        categoryDiv.classList.add("category-results");
-        categoryDiv.dataset.category = category;
-        document.querySelector("#results").prepend(categoryDiv);
-    }
+function appendResult(item, categoryDiv) {
+    const category = categoryDiv ? categoryDiv.dataset.category : "";
 
     let html = "";
     if (category.toLowerCase() === "person") {
@@ -118,6 +133,7 @@ function search(query, category) {
 
     // Insert the new search block at the top of the results container
     resultsContainer.prepend(header);
+    latestCategoryDiv = header.querySelector(".category-results");
 
     // Send the search to the server
     ws.send(JSON.stringify({
@@ -126,8 +142,9 @@ function search(query, category) {
     }));
 }
 
-// Handle form submission
 document.addEventListener("DOMContentLoaded", () => {
+    initWebSocket();
+
     document.querySelector("#search_form").addEventListener("submit", (e) => {
         e.preventDefault();
 
@@ -143,8 +160,6 @@ document.addEventListener("DOMContentLoaded", () => {
             alert("Please select a category.");
             return;
         }
-
-        console.log("Form submitted");
 
         // Send the search
         search(query, category);

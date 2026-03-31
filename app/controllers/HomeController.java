@@ -587,7 +587,6 @@ public class HomeController extends Controller {
     }
 
     public WebSocket ws() {
-        System.out.println("WebSocket connection initiated");
         return WebSocket.Text.accept(request ->
                 ActorFlow.actorRef(
                         out -> Props.create(SearchWebSocketActor.class, out, tmdbService, apiUrl, tmdbToken),
