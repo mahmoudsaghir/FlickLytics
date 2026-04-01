@@ -15,6 +15,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Actor responsible for handling search WebSocket requests.
+ * Periodically sends periodic updates to the client.
+ *
+ * @author Mahmoud Saghir
+ */
 public class SearchWebSocketActor extends AbstractActor {
 
     private final ActorRef out;
@@ -29,11 +35,19 @@ public class SearchWebSocketActor extends AbstractActor {
     private Cancellable tickTask;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private int emptyTicks = 0;
     private int currentPage = 1;
 
     private final List<String> searchHistory = new ArrayList<>();
 
+    /**
+     * Constructor for SearchWebSocketActor.
+     *
+     * @param out         ActorRef to send messages back to the client
+     * @param tmdbService TMDbService instance
+     * @param apiUrl      TMDb API base URL
+     * @param token       Bearer token for authorization
+     * @author Mahmoud Saghir
+     */
     public SearchWebSocketActor(ActorRef out, TmdbService tmdbService, String apiUrl, String token) {
         this.out = out;
         this.tmdbService = tmdbService;
@@ -41,15 +55,35 @@ public class SearchWebSocketActor extends AbstractActor {
         this.token = token;
     }
 
+    /**
+     * Creates Props for SearchWebSocketActor.
+     *
+     * @param out         ActorRef to send messages back to the client
+     * @param tmdbService TMDbService instance
+     * @param apiUrl      TMDb API base URL
+     * @param token       Bearer token for authorization
+     * @return Props for creating SearchWebSocketActor
+     * @author Mahmoud Saghir
+     */
     public static Props props(ActorRef out, TmdbService tmdbService, String apiUrl, String token) {
         return Props.create(SearchWebSocketActor.class, () -> new SearchWebSocketActor(out, tmdbService, apiUrl, token));
     }
 
+    /**
+     * Logs when the actor is started and stops when it is stopped.
+     *
+     * @author Mahmoud Saghir
+     */
     @Override
     public void preStart() {
         getContext().getSystem().log().info("SearchWebSocketActor started with API URL: {}", apiUrl);
     }
 
+    /**
+     * Cancels the periodic task when the actor is stopped.
+     *
+     * @author Mahmoud Saghir
+     */
     @Override
     public void postStop() {
         if (tickTask != null && !tickTask.isCancelled()) {
@@ -58,6 +92,12 @@ public class SearchWebSocketActor extends AbstractActor {
         getContext().getSystem().log().info("SearchWebSocketActor stopped");
     }
 
+    /**
+     * Handles incoming messages and sends periodic updates to the client.
+     *
+     * @return Receive builder for handling incoming messages and periodic updates
+     * @author Mahmoud Saghir
+     */
     @Override
     public Receive createReceive() {
         return receiveBuilder()
@@ -66,6 +106,12 @@ public class SearchWebSocketActor extends AbstractActor {
                 .build();
     }
 
+    /**
+     * Handles incoming search requests from the client.
+     *
+     * @param message JSON string containing the search query and category
+     * @author Mahmoud Saghir
+     */
     private void handleIncomingMessage(String message) {
         try {
             JsonNode json = objectMapper.readTree(message);
@@ -78,7 +124,7 @@ public class SearchWebSocketActor extends AbstractActor {
             currentCategory = category;
             sentIds.clear();
             currentPage = 1;
-            emptyTicks = 0;
+
             // Notify UI to reset results
             out.tell("{\"type\":\"reset\"}", getSelf());
 
@@ -86,6 +132,7 @@ public class SearchWebSocketActor extends AbstractActor {
             if (searchHistory.size() > 10) {
                 searchHistory.remove(0);
             }
+
             ObjectNode responseNode;
             try {
                 responseNode = tmdbService.searchNow(apiUrl, token, currentQuery, currentCategory, currentPage);
@@ -98,7 +145,7 @@ public class SearchWebSocketActor extends AbstractActor {
             int totalResults = responseNode.path("total_results").asInt(0);
             JsonNode resultsArray = responseNode.path("results");
 
-            // Send total_results first
+            // Send total_results
             out.tell("{\"type\":\"total_results\",\"total_results\":" + totalResults + "}", getSelf());
 
             resultsArray.forEach(r -> {
@@ -127,6 +174,11 @@ public class SearchWebSocketActor extends AbstractActor {
         }
     }
 
+    /**
+     * Periodically sends periodic updates to the client.
+     *
+     * @author Mahmoud Saghir
+     */
     private void handleTick() {
         getContext().getSystem().log().info("Sending periodic updates...");
         if (currentQuery.isEmpty()) {
@@ -145,32 +197,30 @@ public class SearchWebSocketActor extends AbstractActor {
         int totalResults = responseNode.path("total_results").asInt(0);
         JsonNode resultsArray = responseNode.path("results");
 
-        // Send total_results first
+        // Send total_results
         out.tell("{\"type\":\"total_results\",\"total_results\":" + totalResults + "}", getSelf());
 
+        // Send new results
         boolean foundNew = false;
-        for (JsonNode r : resultsArray) {
-            int id = r.get("id").asInt();
 
+        List<JsonNode> newResults = new ArrayList<>();
+        resultsArray.forEach(r -> {
+            int id = r.get("id").asInt();
             if (!sentIds.contains(id)) {
-                foundNew = true;
                 sentIds.add(id);
-                out.tell(r.toString(), getSelf());
+                newResults.add(r);
             }
+        });
+
+        if (!newResults.isEmpty()) {
+            foundNew = true;
+            newResults.forEach(r -> out.tell(r.toString(), getSelf()));
         }
 
         if (!foundNew) {
             currentPage++;
             getContext().getSystem().log().info("No new results, moving to page {}", currentPage);
             out.tell("{\"type\":\"heartbeat\"}", getSelf());
-        } else {
-            emptyTicks = 0;
-        }
-
-        // Do NOT cancel tickTask automatically, keep polling for new data
-        // Optionally, log if currentPage exceeds TMDB limit
-        if (currentPage > 500) {
-            getContext().getSystem().log().info("Reached max page limit, continuing polling...");
         }
     }
 }

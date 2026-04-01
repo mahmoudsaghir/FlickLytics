@@ -7,12 +7,17 @@ import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
 import models.Review;
 import models.ReviewsSummary;
+import org.apache.pekko.actor.ActorRef;
+import org.apache.pekko.actor.ActorSelection;
 import org.apache.pekko.actor.testkit.typed.javadsl.TestKitJunitResource;
 import org.apache.pekko.actor.ActorSystem;
+import org.apache.pekko.pattern.Patterns;
 import org.apache.pekko.stream.Materializer;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import play.Application;
 import play.api.routing.JavaScriptReverseRoute;
 import play.data.FormFactory;
@@ -34,6 +39,7 @@ import services.TmdbService;
 import java.util.ArrayList;
 import java.util.List;
 import java.lang.reflect.Method;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 import static org.junit.Assert.*;
@@ -55,7 +61,6 @@ import static play.test.Helpers.*;
 public class HomeControllerTest {
     private HomeController controller;
     private TmdbService tmdbService;
-    private GlobalDiversityService globalDiversityService;
     private MediaDetailsService mediaDetailsService;
     private ReviewsService reviewsService;
 
@@ -71,7 +76,6 @@ public class HomeControllerTest {
     @Before
     public void setUp() {
         tmdbService = mock(TmdbService.class);
-        globalDiversityService = mock(GlobalDiversityService.class);
         mediaDetailsService = mock(MediaDetailsService.class);
         reviewsService = mock(ReviewsService.class);
         GenreService genreService = mock(GenreService.class);
@@ -86,6 +90,7 @@ public class HomeControllerTest {
         Helpers.start(application);
 
         ActorSystem actorSystem = testKit.system().classicSystem();
+        ActorRef supervisorActor = mock(ActorRef.class);
         Materializer materializer = application.injector().instanceOf(Materializer.class);
 
         controller = new HomeController(
@@ -93,19 +98,19 @@ public class HomeControllerTest {
                 application.injector().instanceOf(MessagesApi.class),
                 application.injector().instanceOf(ClassLoaderExecutionContext.class),
                 config,
-                globalDiversityService,
                 genreService,
                 tmdbService,
                 mediaDetailsService,
                 reviewsService,
                 actorSystem,
+                supervisorActor,
                 materializer
         );
     }
 
     /**
      * Tests the globalDiversity action.
-     * Mocks TmdbService and GlobalDiversityService to return sample data.
+     * Mocks TmdbService and actor ask to return sample data.
      * Verifies successful rendering with computed metrics.
      *
      * @author Mahmoud Saghir
@@ -119,26 +124,28 @@ public class HomeControllerTest {
         when(tmdbService.getDetailsAndTranslations(anyString(), anyString(), eq("movie"), eq(1L)))
                 .thenReturn(detailsNode);
 
-        // Mock computed result
+        // Mock actor response instead of service
         GlobalDiversityResult mockResult = new GlobalDiversityResult(0.5, 0.8, "Test Movie");
-
-        when(globalDiversityService.compute(eq("movie"), any(), eq(10)))
-                .thenReturn(mockResult);
+        CompletionStage<Object> future = CompletableFuture.completedFuture(mockResult);
 
         Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/");
         Http.Request request = requestBuilder.build();
 
-        CompletionStage<Result> resultStage = controller.globalDiversity(request, "movie", 1);
+        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
 
-        Result result = resultStage.toCompletableFuture().join();
-        String html = contentAsString(result);
+            CompletionStage<Result> resultStage = controller.globalDiversity(request, "movie", 1);
+            Result result = resultStage.toCompletableFuture().join();
 
-        assertEquals(OK, result.status());
-        assertTrue(html.contains("Test Movie"));
-        assertTrue(html.contains("Translation Density"));
-        assertTrue(html.contains("0.5"));
-        assertTrue(html.contains("Localization Index"));
-        assertTrue(html.contains("0.8"));
+            String html = contentAsString(result);
+
+            assertEquals(OK, result.status());
+            assertTrue(html.contains("Test Movie"));
+            assertTrue(html.contains("Translation Density"));
+            assertTrue(html.contains("0.5"));
+            assertTrue(html.contains("Localization Index"));
+            assertTrue(html.contains("0.8"));
+        }
     }
 
     /**
@@ -641,6 +648,7 @@ public class HomeControllerTest {
         when(tmdbService.loadTargetLanguageConstant(anyString(), anyString())).thenReturn(10);
 
         ActorSystem actorSystem = testKit.system().classicSystem();
+        ActorRef supervisorActor = mock(ActorRef.class);
         Materializer materializer = application.injector().instanceOf(Materializer.class);
 
         HomeController localController = new HomeController(
@@ -648,12 +656,12 @@ public class HomeControllerTest {
                 application.injector().instanceOf(MessagesApi.class),
                 application.injector().instanceOf(ClassLoaderExecutionContext.class),
                 config,
-                globalDiversityService,
                 throwingGenreService,
                 tmdbService,
                 mediaDetailsService,
                 reviewsService,
                 actorSystem,
+                supervisorActor,
                 materializer
         );
 
