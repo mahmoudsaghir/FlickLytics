@@ -13,21 +13,41 @@ import services.GlobalDiversityService;
 
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for the GlobalDiversityActor class.
+ *
+ * @author Mahmoud Saghir
+ */
 public class GlobalDiversityActorTest {
 
     static ActorSystem system;
 
+    /**
+     * Setup the test environment.
+     *
+     * @author Mahmoud Saghir
+     */
     @BeforeClass
     public static void setup() {
         system = ActorSystem.create();
     }
 
+    /**
+     * Tear down the test environment.
+     *
+     * @author Mahmoud Saghir
+     */
     @AfterClass
     public static void teardown() {
         TestKit.shutdownActorSystem(system);
         system = null;
     }
 
+    /**
+     * Tests the computeDiversity method.
+     *
+     * @author Mahmoud Saghir
+     */
     @Test
     public void testComputeDiversity() {
         new TestKit(system) {{

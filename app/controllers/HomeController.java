@@ -1,11 +1,7 @@
 package controllers;
 
-import actors.GlobalDiversityActor;
 import actors.SearchWebSocketActor;
-import actors.SupervisorActor;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import forms.SearchForm;
 import models.FinancialPerformance;
@@ -19,29 +15,29 @@ import org.apache.pekko.pattern.Patterns;
 import org.apache.pekko.stream.Materializer;
 import org.apache.pekko.stream.OverflowStrategy;
 import org.webjars.play.WebJarsUtil;
-import play.libs.streams.ActorFlow;
 import play.data.Form;
 import play.data.FormFactory;
 import play.i18n.Messages;
 import play.i18n.MessagesApi;
-import play.libs.Json;
 import play.libs.concurrent.ClassLoaderExecutionContext;
+import play.libs.streams.ActorFlow;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
 import play.mvc.WebSocket;
-import services.*;
+import services.GenreService;
+import services.MediaDetailsService;
+import services.ReviewsService;
+import services.TmdbService;
 
 import javax.inject.Inject;
+import javax.inject.Named;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
@@ -78,7 +74,6 @@ public class HomeController extends Controller {
     private final Map<Integer, String> movieGenres = new ConcurrentHashMap<>();
     private final Map<Integer, String> tvGenres = new ConcurrentHashMap<>();
 
-    private final GlobalDiversityService globalDiversityService;
     private final TmdbService tmdbService;
 
     private final ActorSystem actorSystem;
@@ -93,30 +88,29 @@ public class HomeController extends Controller {
      * Constructs the HomeController with all required dependencies.
      * Dependencies are injected by Play Framework's Guice injector.
      *
-     * @param formFactory            Play's form factory for handling form data
-     * @param messagesApi            Play's messages API for internationalization
-     * @param clExecutionContext     Play's ClassLoaderExecutionContext for async operations
-     * @param config                 The application configuration
-     * @param globalDiversityService The Global Diversity service
-     * @param genreService           The Genre service for loading genre maps
-     * @param tmdbService            The TMDb service for API communication
-     * @param mediaDetailsService    The Media Details service for readability calculations
-     * @param reviewsService         The Reviews service for sentiment analysis
-     * @param actorSystem            The Pekko Actor System for concurrency
+     * @param formFactory         Play's form factory for handling form data
+     * @param messagesApi         Play's messages API for internationalization
+     * @param clExecutionContext  Play's ClassLoaderExecutionContext for async operations
+     * @param config              The application configuration
+     * @param genreService        The Genre service for loading genre maps
+     * @param tmdbService         The TMDb service for API communication
+     * @param mediaDetailsService The Media Details service for readability calculations
+     * @param reviewsService      The Reviews service for sentiment analysis
+     * @param actorSystem         The Pekko Actor System for concurrency
      * @author Mahmoud Saghir
      */
     @Inject
     public HomeController(FormFactory formFactory, MessagesApi messagesApi,
                           ClassLoaderExecutionContext clExecutionContext, Config config,
-                          GlobalDiversityService globalDiversityService, GenreService genreService,
-                          TmdbService tmdbService, MediaDetailsService mediaDetailsService,
-                          ReviewsService reviewsService, ActorSystem actorSystem, Materializer materializer) {
+                          GenreService genreService, TmdbService tmdbService,
+                          MediaDetailsService mediaDetailsService, ReviewsService reviewsService,
+                          ActorSystem actorSystem, @Named("supervisorActor") ActorRef supervisorActor,
+                          Materializer materializer) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
         this.tmdbToken = config.getString("tmdb.api.key");
         this.apiUrl = config.getString("tmdb.api.url");
-        this.globalDiversityService = globalDiversityService;
         this.tmdbService = tmdbService;
         this.mediaDetailsService = mediaDetailsService;
         this.reviewsService = reviewsService;
@@ -132,10 +126,7 @@ public class HomeController extends Controller {
         this.targetLanguageConstant = this.tmdbService.loadTargetLanguageConstant(apiUrl, tmdbToken);
 
         this.actorSystem = actorSystem;
-        this.supervisorActor = actorSystem.actorOf(
-                Props.create(SupervisorActor.class, () -> new SupervisorActor(globalDiversityService)),
-                "supervisor-" + UUID.randomUUID()
-        );
+        this.supervisorActor = supervisorActor;
     }
 
     /**
@@ -172,9 +163,9 @@ public class HomeController extends Controller {
      * Error handling is included to report API failures.
      *
      * @param request The HTTP request
-     * @param id The unique identifier of the movie
+     * @param id      The unique identifier of the movie
      * @return a promise to render containing the rendered financial performance page,
-     *         or an internal server error if the movie data cannot be retrieved
+     * or an internal server error if the movie data cannot be retrieved
      * @author Charles Wang
      * @author Tasmia Naomi
      */
@@ -285,157 +276,6 @@ public class HomeController extends Controller {
 
         return new MovieOrTVShow(itemId, title, popularity, voteAverage, voteCount, year);
     }
-
-    /***
-     * An action that handles the search form submission, performs the TMDb API call,
-     * processes the results, and renders the index page with search results.
-     *
-     * @param request The HTTP request
-     * @return A promise to render the index page with search results
-     * @author Mahmoud Saghir
-     */
-//    public CompletionStage<Result> search(Http.Request request) {
-//        Messages messages = messagesApi.preferred(request);
-//        Form<SearchForm> form = formFactory.form(SearchForm.class).bindFromRequest(request);
-//
-//        if (form.hasErrors()) {
-//            // Render the page with the submitted form to show errors
-//            return CompletableFuture.completedFuture(ok(views.html.index.render(form, request, messages, null, webJarsUtil)));
-//        }
-//
-//        String query = form.get().query;
-//        String category = form.get().category;
-//
-//        // Run API call asynchronously using supplyAsync and ClassLoaderExecutionContext
-//        return CompletableFuture.supplyAsync(() -> {
-//                    try {
-//                        JsonNode rootNode = tmdbService.search(apiUrl, tmdbToken, query, category, 1);
-//
-//                        ArrayNode resultsArray = (ArrayNode) rootNode.get("results");
-//
-//                        List<ObjectNode> filteredResultsList = StreamSupport.stream(resultsArray.spliterator(), false)
-//                                .map(item -> {
-//                                    ObjectNode filteredItem = Json.newObject();
-//                                    if (category.equals("movie")) {
-//
-//                                        filteredItem.put("id", item.path("id").asInt(0));
-//                                        filteredItem.put("title", item.path("title").asText(""));
-//                                        filteredItem.put("link", "/movie/" + item.path("id").asText(""));
-//                                        filteredItem.put("language", item.path("original_language").asText(""));
-//
-//                                        // convert genre IDs to genre names using cached movieGenres map
-//                                        ArrayNode genreNames = Json.newArray();
-//                                        for (JsonNode genreIdNode : item.path("genre_ids")) {
-//                                            int genreId = genreIdNode.asInt();
-//                                            String genreName = movieGenres.getOrDefault(genreId, "Unknown");
-//                                            genreNames.add(genreName);
-//                                        }
-//                                        filteredItem.set("genres", genreNames);
-//                                        filteredItem.put("release_date", item.path("release_date").asText(""));
-//                                        filteredItem.put("popularity", item.path("popularity").asDouble(0.0));
-//                                        filteredItem.put("vote_average", item.path("vote_average").asDouble(0.0));
-//                                    } else if (category.equals("tv")) {
-//                                        filteredItem.put("id", item.path("id").asInt(0));
-//                                        filteredItem.put("name", item.path("name").asText(""));
-//                                        filteredItem.put("link", "/tv/" + item.path("id").asText(""));
-//                                        filteredItem.put("language", item.path("original_language").asText(""));
-//                                        // convert genre IDs to genre names using cached tvGenres map
-//                                        ArrayNode genreNames = Json.newArray();
-//                                        for (JsonNode genreIdNode : item.path("genre_ids")) {
-//                                            int genreId = genreIdNode.asInt();
-//                                            String genreName = tvGenres.getOrDefault(genreId, "Unknown");
-//                                            genreNames.add(genreName);
-//                                        }
-//                                        filteredItem.set("genres", genreNames);
-//                                        filteredItem.put("first_air_date", item.path("first_air_date").asText(""));
-//                                        filteredItem.put("popularity", item.path("popularity").asDouble(0.0));
-//                                        filteredItem.put("vote_average", item.path("vote_average").asDouble(0.0));
-//                                    } else {
-//                                        filteredItem.put("id", item.path("id").asInt(0));
-//                                        filteredItem.put("name", item.path("name").asText(""));
-//                                        filteredItem.put("photo_link", item.path("profile_path").isNull() || item.path("profile_path").asText().isEmpty() ? "" : "https://image.tmdb.org/t/p/w500" + item.path("profile_path").asText(""));
-//                                        filteredItem.put("gender", item.path("gender").asInt(0));
-//                                        filteredItem.put("popularity", item.path("popularity").asDouble(0.0));
-//                                        filteredItem.put("known_for_department", item.path("known_for_department").asText(""));
-//                                        ArrayNode knownForArray = Json.newArray();
-//                                        JsonNode knownFor = item.path("known_for");
-//                                        if (knownFor.isArray()) {
-//                                            for (JsonNode knownForItem : knownFor) {
-//                                                ObjectNode knownForFiltered = Json.newObject();
-//                                                knownForFiltered.put("title", knownForItem.has("title") ? knownForItem.path("title").asText("") : knownForItem.path("name").asText(""));
-//                                                knownForFiltered.put("link", knownForItem.has("title") ? "/movie/" + knownForItem.path("id").asText("") : "/tv/" + knownForItem.path("id").asText(""));
-//                                                knownForFiltered.put("media_type", knownForItem.path("media_type").asText(""));
-//                                                knownForArray.add(knownForFiltered);
-//                                            }
-//                                        }
-//                                        filteredItem.set("known_for", knownForArray);
-//                                    }
-//                                    return filteredItem;
-//                                })
-//                                .limit(10)
-//                                .toList();
-//
-//                        ArrayNode filteredResults = Json.newArray();
-//                        filteredResultsList.forEach(filteredResults::add);
-//
-//                        // Use the original total_results from TMDb
-//                        int totalResults = rootNode.path("total_results").asInt(0);
-//
-//                        // Build the filtered response object
-//                        ObjectNode filteredResponse = Json.newObject();
-//                        filteredResponse.put("total_results", totalResults);
-//                        filteredResponse.set("results", filteredResults);
-//
-//                        // Return the JSON string for thenApply
-//                        return filteredResponse.toString();
-//                    } catch (Exception e) {
-//                        e.printStackTrace();
-//                        return "{\"error\":\"Failed to fetch TMDb data\"}";
-//                    }
-//                }, clExecutionContext.current())
-//                .thenApply(resultsJson -> {
-//                    // Parse new search result
-//                    JsonNode newSearchNode = Json.parse(resultsJson);
-//
-//                    // Build a wrapper object containing metadata and results
-//                    ObjectNode searchWrapper = Json.newObject();
-//                    searchWrapper.put("query", query);
-//                    searchWrapper.put("category", category);
-//                    searchWrapper.put("total_results", newSearchNode.path("total_results").asInt(0));
-//                    searchWrapper.set("results", newSearchNode.path("results"));
-//
-//                    // Generate a unique ID for this search
-//                    String searchId = UUID.randomUUID().toString();
-//
-//                    // Store a full result in a server-side cache
-//                    searchCache.put(searchId, searchWrapper);
-//
-//                    // Get previous search IDs from the session (comma separated)
-//                    String oldIds = request.session().get("searchHistory").orElse("");
-//                    String updatedIds;
-//
-//                    if (oldIds.isEmpty()) {
-//                        updatedIds = searchId;
-//                    } else {
-//                        updatedIds = searchId + "," + oldIds;
-//                    }
-//
-//                    // Keep at most 10 search queries in history
-//                    String[] ids = updatedIds.split(",");
-//                    if (ids.length > 10) {
-//                        updatedIds = String.join(",", Arrays.copyOf(ids, 10));
-//                    }
-//
-//                    // Build ArrayNode to send it to view
-//                    ArrayNode historyArray = Json.newArray();
-//                    Stream.of(updatedIds.split(","))
-//                            .map(searchCache::get)
-//                            .forEach(historyArray::add);
-//
-//                    return ok(views.html.index.render(form, request, messages, historyArray.toString(), webJarsUtil))
-//                            .addingToSession(request, "searchHistory", updatedIds);
-//                });
-//    }
 
     /**
      * An action that renders the Global Diversity page for a given TMDb ID and category.
@@ -579,6 +419,12 @@ public class HomeController extends Controller {
         });
     }
 
+    /**
+     * An action that handles the search form submission and renders the search results page.
+     *
+     * @return A WebSocket that handles search queries and sends search results back to the client
+     * @author Mahmoud Saghir
+     */
     public WebSocket ws() {
         return WebSocket.Text.accept(request ->
                 ActorFlow.actorRef(
