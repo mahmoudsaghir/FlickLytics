@@ -1,4 +1,4 @@
-@(mediaType: String, id: Long, reviewsSummary: models.ReviewsSummary, request: Http.Request, messages: play.i18n.Messages)
+@(mediaType: String, id: Long, reviewsSummary: models.ReviewsSummary)(implicit request: Http.Request, messages: play.i18n.Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
 
 @main("Reviews - " + mediaType.capitalize) {
 <div class="container mt-4">

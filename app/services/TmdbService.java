@@ -1,7 +1,12 @@
 package services;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.Utils;
+import play.libs.Json;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Service responsible for all TMDb API communications.
@@ -18,11 +23,12 @@ public class TmdbService {
      * @param token    Bearer token for authorization
      * @param query    The search query string
      * @param category The category to search in ("movie", "tv", or "person")
+     * @param currentPage The page number for pagination
      * @return JsonNode containing search results
      * @throws java.lang.Exception if the API request fails
      * @author Mahmoud Saghir
      */
-    public JsonNode search(String apiUrl, String token, String query, String category) throws Exception {
+    public JsonNode search(String apiUrl, String token, String query, String category, int currentPage) throws Exception {
 
         String encodedQuery = query.replace(" ", "%20");
 
@@ -34,7 +40,7 @@ public class TmdbService {
             case "person" -> searchUrl += "person?query=" + encodedQuery;
         }
 
-        return Utils.sendGetRequest(searchUrl, token);
+        return Utils.sendGetRequest(searchUrl + "&page=" + currentPage, token);
     }
 
     /**
@@ -171,5 +177,32 @@ public class TmdbService {
         merged.put("total_results", firstPage.path("total_results").asInt(0));
         merged.put("total_pages", totalPages);
         return merged;
+    }
+
+    /**
+     * Fetches search results immediately (used by WebSocket reactive updates).
+     * Returns the list of results array from TMDb response.
+     */
+    public ObjectNode searchNow(String apiUrl, String token, String query, String category, int currentPage) {
+        ObjectNode resultNode = Json.newObject();
+
+        try {
+            JsonNode response = search(apiUrl, token, query, category, currentPage);
+
+            if (response.has("results") && response.get("results").isArray()) {
+                resultNode.set("results", response.get("results"));
+            } else {
+                resultNode.set("results", Json.newArray());
+            }
+
+            resultNode.put("total_results", response.path("total_results").asInt(0));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            resultNode.set("results", Json.newArray());
+            resultNode.put("total_results", 0);
+        }
+
+        return resultNode;
     }
 }
