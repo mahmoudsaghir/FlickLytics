@@ -85,8 +85,8 @@ function appendResult(item, categoryDiv) {
     const vote = item.vote_average ?? "N/A";
 
     let genres = "N/A";
-    if (item.genre_ids && item.genre_ids.length > 0) {
-        genres = item.genre_ids.join(", ");
+    if (item.genre_names && item.genre_names.length > 0) {
+        genres = item.genre_names.join(", ");
     }
 
     let financialButton = "";

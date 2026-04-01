@@ -2,6 +2,7 @@ package actors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.pekko.actor.AbstractActor;
 import org.apache.pekko.actor.ActorRef;
@@ -10,10 +11,7 @@ import org.apache.pekko.actor.Props;
 import services.TmdbService;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Actor responsible for handling search WebSocket requests.
@@ -39,6 +37,9 @@ public class SearchWebSocketActor extends AbstractActor {
 
     private final List<String> searchHistory = new ArrayList<>();
 
+    private final Map<Integer, String> movieGenres;
+    private final Map<Integer, String> tvGenres;
+
     /**
      * Constructor for SearchWebSocketActor.
      *
@@ -48,11 +49,14 @@ public class SearchWebSocketActor extends AbstractActor {
      * @param token       Bearer token for authorization
      * @author Mahmoud Saghir
      */
-    public SearchWebSocketActor(ActorRef out, TmdbService tmdbService, String apiUrl, String token) {
+    public SearchWebSocketActor(ActorRef out, TmdbService tmdbService, String apiUrl, String token,
+                                Map<Integer, String> movieGenres, Map<Integer, String> tvGenres) {
         this.out = out;
         this.tmdbService = tmdbService;
         this.apiUrl = apiUrl;
         this.token = token;
+        this.movieGenres = movieGenres;
+        this.tvGenres = tvGenres;
     }
 
     /**
@@ -62,11 +66,15 @@ public class SearchWebSocketActor extends AbstractActor {
      * @param tmdbService TMDbService instance
      * @param apiUrl      TMDb API base URL
      * @param token       Bearer token for authorization
+     * @param movieGenres Map of movie genre IDs to names
+     * @param tvGenres    Map of TV genre IDs to names
      * @return Props for creating SearchWebSocketActor
      * @author Mahmoud Saghir
      */
-    public static Props props(ActorRef out, TmdbService tmdbService, String apiUrl, String token) {
-        return Props.create(SearchWebSocketActor.class, () -> new SearchWebSocketActor(out, tmdbService, apiUrl, token));
+    public static Props props(ActorRef out, TmdbService tmdbService, String apiUrl, String token,
+                              Map<Integer, String> movieGenres, Map<Integer, String> tvGenres) {
+        return Props.create(SearchWebSocketActor.class,
+                () -> new SearchWebSocketActor(out, tmdbService, apiUrl, token, movieGenres, tvGenres));
     }
 
     /**
@@ -152,6 +160,19 @@ public class SearchWebSocketActor extends AbstractActor {
                 int id = r.get("id").asInt();
                 if (!sentIds.contains(id)) {
                     sentIds.add(id);
+                    // Map genre_ids to genre_names
+                    if (r.has("genre_ids")) {
+                        ArrayNode ids = (ArrayNode) r.get("genre_ids");
+                        ArrayNode names = objectMapper.createArrayNode();
+                        for (JsonNode idNode : ids) {
+                            int gid = idNode.asInt();
+                            String name = "movie".equals(currentCategory)
+                                    ? movieGenres.getOrDefault(gid, "Unknown")
+                                    : tvGenres.getOrDefault(gid, "Unknown");
+                            names.add(name);
+                        }
+                        ((ObjectNode) r).set("genre_names", names);
+                    }
                     out.tell(r.toString(), getSelf());
                 }
             });
@@ -208,6 +229,19 @@ public class SearchWebSocketActor extends AbstractActor {
             int id = r.get("id").asInt();
             if (!sentIds.contains(id)) {
                 sentIds.add(id);
+                // Map genre_ids to genre_names
+                if (r.has("genre_ids")) {
+                    ArrayNode ids = (ArrayNode) r.get("genre_ids");
+                    ArrayNode names = objectMapper.createArrayNode();
+                    for (JsonNode idNode : ids) {
+                        int gid = idNode.asInt();
+                        String name = "movie".equals(currentCategory)
+                                ? movieGenres.getOrDefault(gid, "Unknown")
+                                : tvGenres.getOrDefault(gid, "Unknown");
+                        names.add(name);
+                    }
+                    ((ObjectNode) r).set("genre_names", names);
+                }
                 newResults.add(r);
             }
         });
