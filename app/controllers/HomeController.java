@@ -428,7 +428,7 @@ public class HomeController extends Controller {
     public WebSocket ws() {
         return WebSocket.Text.accept(request ->
                 ActorFlow.actorRef(
-                        out -> Props.create(SearchWebSocketActor.class, out, tmdbService, apiUrl, tmdbToken),
+                        out -> Props.create(SearchWebSocketActor.class, out, tmdbService, apiUrl, tmdbToken, movieGenres, tvGenres),
                         16,
                         OverflowStrategy.dropBuffer(),
                         actorSystem,

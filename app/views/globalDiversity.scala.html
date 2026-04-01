@@ -32,7 +32,7 @@
                                     </tr>
                                     <tr>
                                         <th>Category</th>
-                                        <td>@category.capitalize</td>
+                                        <td>@(if(category == "tv") "TV show" else if(category == "movie") "Movie" else category.capitalize)</td>
                                     </tr>
                                 </tbody>
                             </table>
