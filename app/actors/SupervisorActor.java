@@ -3,6 +3,7 @@ package actors;
 import org.apache.pekko.actor.*;
 import org.apache.pekko.japi.pf.DeciderBuilder;
 import services.GlobalDiversityService;
+import services.TmdbService;
 
 import java.time.Duration;
 
@@ -14,6 +15,9 @@ import java.time.Duration;
 public class SupervisorActor extends AbstractActor {
 
     private final GlobalDiversityService globalDiversityService;
+    private final TmdbService tmdbService;
+    private final String apiUrl;
+    private final String tmdbToken;
 
     /**
      * Message to create a child actor.
@@ -42,11 +46,20 @@ public class SupervisorActor extends AbstractActor {
     /**
      * Constructor for SupervisorActor.
      *
-     * @param globalDiversityService
+     * @param globalDiversityService GlobalDiversityService instance
+     * @param tmdbService            TmdbService instance
+     * @param apiUrl                 API URL string
+     * @param tmdbToken              TMDB token string
      * @author Mahmoud Saghir
      */
-    public SupervisorActor(GlobalDiversityService globalDiversityService) {
+    public SupervisorActor(GlobalDiversityService globalDiversityService,
+                           TmdbService tmdbService,
+                           String apiUrl,
+                           String tmdbToken) {
         this.globalDiversityService = globalDiversityService;
+        this.tmdbService = tmdbService;
+        this.apiUrl = apiUrl;
+        this.tmdbToken = tmdbToken;
     }
 
     /**
@@ -57,8 +70,8 @@ public class SupervisorActor extends AbstractActor {
     @Override
     public void preStart() {
         globalDiversityActor = getContext().actorOf(
-                Props.create(GlobalDiversityActor.class, () -> new GlobalDiversityActor(globalDiversityService)),
-                "globalDiversityActor"
+                Props.create(GlobalDiversityActor.class, () ->
+                        new GlobalDiversityActor(globalDiversityService, tmdbService, apiUrl, tmdbToken)), "globalDiversityActor"
         );
     }
 
