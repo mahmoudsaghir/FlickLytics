@@ -1,5 +1,6 @@
 package controllers;
 
+import actors.GlobalDiversityActor;
 import actors.SearchWebSocketActor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.typesafe.config.Config;
@@ -289,15 +290,12 @@ public class HomeController extends Controller {
         Messages messages = messagesApi.preferred(request);
 
         try {
-            JsonNode detailsAndTranslationRoot = tmdbService.getDetailsAndTranslations(apiUrl, tmdbToken, category, id.longValue());
-
-            // Use classic ask pattern to send to the classic actor
             Duration timeout = Duration.ofSeconds(3);
             CompletionStage<Object> resultFuture = Patterns.ask(
                     supervisorActor,
-                    new actors.GlobalDiversityActor.ComputeDiversity(
+                    new GlobalDiversityActor.ComputeDiversity(
                             category,
-                            detailsAndTranslationRoot,
+                            id.longValue(),
                             targetLanguageConstant
                     ),
                     timeout
