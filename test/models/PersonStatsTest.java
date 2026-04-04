@@ -15,14 +15,14 @@ import static org.junit.Assert.*;
  * - Limit to 50 items
  * - Zero and high values
  *
- * @author Tasmia Naomi
+ * @author Syed Shahab Shah
  */
 public class PersonStatsTest {
 
     /**
      * Tests PersonStats with null input.
      *
-     * @author Tasmia Naomi
+     * @author Syed Shahab Shah
      */
     @Test
     public void testNullInput() {
@@ -42,7 +42,7 @@ public class PersonStatsTest {
     /**
      * Tests PersonStats with empty list.
      *
-     * @author Tasmia Naomi
+     * @author Syed Shahab Shah
      */
     @Test
     public void testEmptyList() {
@@ -56,7 +56,7 @@ public class PersonStatsTest {
     /**
      * Tests PersonStats with a single item.
      *
-     * @author Tasmia Naomi
+     * @author Syed Shahab Shah
      */
     @Test
     public void testSingleItem() {
@@ -76,7 +76,7 @@ public class PersonStatsTest {
     /**
      * Tests PersonStats with two items for min/max/average.
      *
-     * @author Tasmia Naomi
+     * @author Syed Shahab Shah
      */
     @Test
     public void testTwoItems() {
@@ -97,7 +97,7 @@ public class PersonStatsTest {
     /**
      * Tests that PersonStats limits results to 50 items.
      *
-     * @author Tasmia Naomi
+     * @author Syed Shahab Shah
      */
     @Test
     public void testLimitTo50() {
@@ -112,7 +112,7 @@ public class PersonStatsTest {
     /**
      * Tests PersonStats with exactly 50 items.
      *
-     * @author Tasmia Naomi
+     * @author Syed Shahab Shah
      */
     @Test
     public void testExactly50Items() {
@@ -127,7 +127,7 @@ public class PersonStatsTest {
     /**
      * Tests PersonStats with zero values.
      *
-     * @author Tasmia Naomi
+     * @author Syed Shahab Shah
      */
     @Test
     public void testZeroValues() {
@@ -143,7 +143,7 @@ public class PersonStatsTest {
     /**
      * Tests getLatestItems returns correct content.
      *
-     * @author Tasmia Naomi
+     * @author Syed Shahab Shah
      */
     @Test
     public void testGetLatestItemsContent() {
