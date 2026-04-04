@@ -7,6 +7,7 @@ import org.apache.pekko.actor.Props;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import services.GlobalDiversityService;
+import services.TmdbService;
 
 /**
  * Actor responsible for computing Global Diversity metrics.
@@ -16,6 +17,9 @@ import services.GlobalDiversityService;
 public class GlobalDiversityActor extends AbstractActor {
 
     private final GlobalDiversityService service;
+    private final TmdbService tmdbService;
+    private final String apiUrl;
+    private final String tmdbToken;
     private final Logger logger = LoggerFactory.getLogger(GlobalDiversityActor.class);
 
     /**
@@ -25,20 +29,19 @@ public class GlobalDiversityActor extends AbstractActor {
      */
     public static class ComputeDiversity {
         public final String category;
-        public final JsonNode detailsAndTranslationRoot;
+        public final Long id;
         public final int targetLanguageConstant;
 
         /**
          * Constructor for ComputeDiversity.
          *
-         * @param category                  movie or tv
-         * @param detailsAndTranslationRoot details and translations
-         * @param targetLanguageConstant    normalization constant
+         * @param category               movie or tv
+         * @param targetLanguageConstant normalization constant
          * @author Mahmoud Saghir
          */
-        public ComputeDiversity(String category, JsonNode detailsAndTranslationRoot, int targetLanguageConstant) {
+        public ComputeDiversity(String category, Long id, int targetLanguageConstant) {
             this.category = category;
-            this.detailsAndTranslationRoot = detailsAndTranslationRoot;
+            this.id = id;
             this.targetLanguageConstant = targetLanguageConstant;
         }
     }
@@ -46,11 +49,17 @@ public class GlobalDiversityActor extends AbstractActor {
     /**
      * Constructor for GlobalDiversityActor.
      *
-     * @param service GlobalDiversityService instance
+     * @param service     GlobalDiversityService instance
+     * @param tmdbService TmdbService instance
+     * @param apiUrl      API URL string
+     * @param tmdbToken   TMDB token string
      * @author Mahmoud Saghir
      */
-    public GlobalDiversityActor(GlobalDiversityService service) {
+    public GlobalDiversityActor(GlobalDiversityService service, TmdbService tmdbService, String apiUrl, String tmdbToken) {
         this.service = service;
+        this.tmdbService = tmdbService;
+        this.apiUrl = apiUrl;
+        this.tmdbToken = tmdbToken;
     }
 
     /**
@@ -60,8 +69,12 @@ public class GlobalDiversityActor extends AbstractActor {
      * @return Props for creating GlobalDiversityActor
      * @author Mahmoud Saghir
      */
-    public static Props props(GlobalDiversityService service) {
-        return Props.create(GlobalDiversityActor.class, () -> new GlobalDiversityActor(service));
+    public static Props props(GlobalDiversityService service,
+                              services.TmdbService tmdbService,
+                              String apiUrl,
+                              String tmdbToken) {
+        return Props.create(GlobalDiversityActor.class,
+                () -> new GlobalDiversityActor(service, tmdbService, apiUrl, tmdbToken));
     }
 
     /**
@@ -84,9 +97,12 @@ public class GlobalDiversityActor extends AbstractActor {
      * @param msg ComputeDiversity message
      * @author Mahmoud Saghir
      */
-    private void onComputeDiversity(ComputeDiversity msg) {
+    private void onComputeDiversity(ComputeDiversity msg) throws Exception {
         logger.info("Received ComputeDiversity message: category={}, targetLanguageConstant={}", msg.category, msg.targetLanguageConstant);
-        GlobalDiversityResult result = service.compute(msg.category, msg.detailsAndTranslationRoot, msg.targetLanguageConstant);
+
+        JsonNode detailsAndTranslationRoot = tmdbService.getDetailsAndTranslations(apiUrl, tmdbToken, msg.category, msg.id);
+        GlobalDiversityResult result = service.compute(msg.category, detailsAndTranslationRoot, msg.targetLanguageConstant);
+
         logger.info("Computed GlobalDiversityResult: {}", result);
         getSender().tell(result, getSelf());
     }

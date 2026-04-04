@@ -156,10 +156,11 @@ public class SearchWebSocketActor extends AbstractActor {
             // Send total_results
             out.tell("{\"type\":\"total_results\",\"total_results\":" + totalResults + "}", getSelf());
 
-            resultsArray.forEach(r -> {
-                int id = r.get("id").asInt();
-                if (!sentIds.contains(id)) {
-                    sentIds.add(id);
+            int sentCount = 0;
+            for (JsonNode r : resultsArray) {
+                if (!sentIds.contains(r.get("id").asInt()) && sentCount < 10) {
+                    sentIds.add(r.get("id").asInt());
+                    sentCount++;
                     // Map genre_ids to genre_names
                     if (r.has("genre_ids")) {
                         ArrayNode ids = (ArrayNode) r.get("genre_ids");
@@ -175,7 +176,7 @@ public class SearchWebSocketActor extends AbstractActor {
                     }
                     out.tell(r.toString(), getSelf());
                 }
-            });
+            }
 
             if (tickTask != null && !tickTask.isCancelled()) {
                 tickTask.cancel();
@@ -248,7 +249,12 @@ public class SearchWebSocketActor extends AbstractActor {
 
         if (!newResults.isEmpty()) {
             foundNew = true;
-            newResults.forEach(r -> out.tell(r.toString(), getSelf()));
+            int sentCount = 0;
+            for (JsonNode r : newResults) {
+                if (sentCount >= 10) break;
+                out.tell(r.toString(), getSelf());
+                sentCount++;
+            }
         }
 
         if (!foundNew) {

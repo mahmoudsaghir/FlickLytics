@@ -1,6 +1,8 @@
 package controllers;
 
+import actors.GlobalDiversityActor;
 import actors.SearchWebSocketActor;
+import actors.SupervisorActor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.typesafe.config.Config;
 import forms.SearchForm;
@@ -229,10 +231,8 @@ public class HomeController extends Controller {
                                     .forEach(allItems::add);
                         }
 
-                        PersonStats stats = new PersonStats(allItems);
-
-                        // Set person profile details
-                        stats.setPersonDetails(
+                        return new SupervisorActor.ComputePersonStats(
+                                allItems,
                                 personDetails.path("name").asText(null),
                                 personDetails.path("profile_path").asText(null),
                                 personDetails.path("known_for_department").asText(null),
@@ -240,13 +240,19 @@ public class HomeController extends Controller {
                                 personDetails.path("birthday").asText(null),
                                 personDetails.path("place_of_birth").asText(null)
                         );
-
-                        return stats;
                     } catch (Exception e) {
                         e.printStackTrace();
-                        return new PersonStats(null);
+                        return null;
                     }
                 }, clExecutionContext.current())
+                .thenCompose(command -> {
+                    if (command == null) {
+                        return CompletableFuture.completedFuture(new PersonStats(null));
+                    }
+                    return Patterns.ask(supervisorActor, command, Duration.ofSeconds(3))
+                            .thenApply(resultObj -> (PersonStats) resultObj)
+                            .exceptionally(ex -> new PersonStats(null));
+                })
                 .thenApply(stats -> {
                     Messages messages = messagesApi.preferred(request);
                     return ok(views.html.personStats.render(stats, request, messages, webJarsUtil));
@@ -289,15 +295,12 @@ public class HomeController extends Controller {
         Messages messages = messagesApi.preferred(request);
 
         try {
-            JsonNode detailsAndTranslationRoot = tmdbService.getDetailsAndTranslations(apiUrl, tmdbToken, category, id.longValue());
-
-            // Use classic ask pattern to send to the classic actor
             Duration timeout = Duration.ofSeconds(3);
             CompletionStage<Object> resultFuture = Patterns.ask(
                     supervisorActor,
-                    new actors.GlobalDiversityActor.ComputeDiversity(
+                    new GlobalDiversityActor.ComputeDiversity(
                             category,
-                            detailsAndTranslationRoot,
+                            id.longValue(),
                             targetLanguageConstant
                     ),
                     timeout

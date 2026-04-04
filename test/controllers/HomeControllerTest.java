@@ -190,8 +190,19 @@ public class HomeControllerTest {
         Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/1/stats");
         Http.Request request = requestBuilder.build();
 
-        CompletionStage<Result> resultStage = controller.personStats("1", request);
-        Result result = resultStage.toCompletableFuture().join();
+        List<MovieOrTVShow> items = new ArrayList<>();
+        items.add(new MovieOrTVShow("1", "Movie A", 10.0, 8.0, 100));
+        items.add(new MovieOrTVShow("2", "Movie B", 20.0, 7.0, 200));
+        models.PersonStats mockStats = new models.PersonStats(items);
+        mockStats.setPersonDetails("Test Person", "/test.jpg", "Acting", 2, "1990-05-15", "Los Angeles, USA");
+
+        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
+        Result result;
+        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
+            CompletionStage<Result> resultStage = controller.personStats("1", request);
+            result = resultStage.toCompletableFuture().join();
+        }
 
         assertEquals(OK, result.status());
         String html = contentAsString(result);
@@ -253,8 +264,16 @@ public class HomeControllerTest {
         Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/2/stats");
         Http.Request request = requestBuilder.build();
 
-        CompletionStage<Result> resultStage = controller.personStats("2", request);
-        Result result = resultStage.toCompletableFuture().join();
+        models.PersonStats mockStats = new models.PersonStats(new ArrayList<>());
+        mockStats.setPersonDetails("Scarlett Johansson", "/scarlett.jpg", "Acting", 1, "1984-11-22", "New York City, USA");
+
+        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
+        Result result;
+        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
+            CompletionStage<Result> resultStage = controller.personStats("2", request);
+            result = resultStage.toCompletableFuture().join();
+        }
 
         assertEquals(OK, result.status());
         String html = contentAsString(result);
@@ -303,8 +322,18 @@ public class HomeControllerTest {
         Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/3/stats");
         Http.Request request = requestBuilder.build();
 
-        CompletionStage<Result> resultStage = controller.personStats("3", request);
-        Result result = resultStage.toCompletableFuture().join();
+        List<MovieOrTVShow> items = new ArrayList<>();
+        items.add(new MovieOrTVShow("1", "Inception", 50.0, 8.8, 5000, "2010"));
+        models.PersonStats mockStats = new models.PersonStats(items);
+        mockStats.setPersonDetails("Leonardo DiCaprio", "/leo.jpg", "Acting", 2, "1974-11-11", "Los Angeles, USA");
+
+        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
+        Result result;
+        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
+            CompletionStage<Result> resultStage = controller.personStats("3", request);
+            result = resultStage.toCompletableFuture().join();
+        }
 
         assertEquals(OK, result.status());
         String html = contentAsString(result);
@@ -349,8 +378,18 @@ public class HomeControllerTest {
         Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/4/stats");
         Http.Request request = requestBuilder.build();
 
-        CompletionStage<Result> resultStage = controller.personStats("4", request);
-        Result result = resultStage.toCompletableFuture().join();
+        List<MovieOrTVShow> items = new ArrayList<>();
+        items.add(new MovieOrTVShow("1", "Breaking Bad", 80.0, 9.5, 10000, "2008"));
+        models.PersonStats mockStats = new models.PersonStats(items);
+        mockStats.setPersonDetails("Bryan Cranston", "/bryan.jpg", "Acting", 2, "1956-03-07", "Canoga Park, USA");
+
+        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
+        Result result;
+        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
+            CompletionStage<Result> resultStage = controller.personStats("4", request);
+            result = resultStage.toCompletableFuture().join();
+        }
 
         assertEquals(OK, result.status());
         String html = contentAsString(result);
