@@ -107,11 +107,16 @@ public class MediaStreamService {
             node.put("title", details.path("title").asText(""));
             node.put("release_date", details.path("release_date").asText(""));
             node.put("runtime", details.path("runtime").asInt(0));
-
-
+            node.set("production_companies", details.path("production_companies"));
+        }else{
+            node.put("name",                 details.path("name").asText(""));
+            node.put("first_air_date",       details.path("first_air_date").asText(""));
+            node.put("last_air_date",        details.path("last_air_date").asText(""));
+            node.put("number_of_seasons",    details.path("number_of_seasons").asInt(0));
+            node.put("number_of_episodes",   details.path("number_of_episodes").asInt(0));
+            node.put("type_field",           details.path("type").asText(""));
+            node.set("networks",             details.path("networks"));
         }
-
+        return node;
     }
-
-
 }
