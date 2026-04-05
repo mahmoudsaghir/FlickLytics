@@ -1,38 +1,78 @@
 package actors;
 
+import org.apache.pekko.actor.ActorRef;
+import org.apache.pekko.actor.ActorSystem;
+import org.apache.pekko.actor.Props;
 import com.fasterxml.jackson.databind.JsonNode;
 import models.GlobalDiversityResult;
-import org.apache.pekko.actor.testkit.typed.javadsl.TestKitJunitResource;
-import org.apache.pekko.actor.testkit.typed.javadsl.TestProbe;
-import org.apache.pekko.actor.typed.ActorRef;
-import org.junit.ClassRule;
+import org.apache.pekko.testkit.javadsl.TestKit;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import services.GlobalDiversityService;
 
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for the GlobalDiversityActor class.
+ *
+ * @author Mahmoud Saghir
+ */
 public class GlobalDiversityActorTest {
 
-    @ClassRule
-    public static final TestKitJunitResource testKit = new TestKitJunitResource();
+    static ActorSystem system;
 
+    /**
+     * Setup the test environment.
+     *
+     * @author Mahmoud Saghir
+     */
+    @BeforeClass
+    public static void setup() {
+        system = ActorSystem.create();
+    }
+
+    /**
+     * Tear down the test environment.
+     *
+     * @author Mahmoud Saghir
+     */
+    @AfterClass
+    public static void teardown() {
+        TestKit.shutdownActorSystem(system);
+        system = null;
+    }
+
+    /**
+     * Tests the computeDiversity method.
+     *
+     * @author Mahmoud Saghir
+     */
     @Test
     public void testComputeDiversity() {
-        GlobalDiversityService mockService = mock(GlobalDiversityService.class);
+        new TestKit(system) {{
+            // Mock the service and expected result
+            GlobalDiversityService mockService = mock(GlobalDiversityService.class);
+            JsonNode mockJson = mock(JsonNode.class);
+            GlobalDiversityResult expectedResult = mock(GlobalDiversityResult.class);
 
-        JsonNode mockJson = mock(JsonNode.class);
-        GlobalDiversityResult expectedResult = mock(GlobalDiversityResult.class);
+            when(mockService.compute("movie", mockJson, 10)).thenReturn(expectedResult);
 
-        when(mockService.compute("movie", mockJson, 10)).thenReturn(expectedResult);
+            // Create the actor
+            ActorRef actor = system.actorOf(Props.create(GlobalDiversityActor.class, mockService));
 
-        ActorRef<GlobalDiversityActor.Command> actor = testKit.spawn(GlobalDiversityActor.create(mockService));
+            // Create a probe to receive the reply
+            TestKit probe = new TestKit(system);
 
-        TestProbe<GlobalDiversityResult> probe = testKit.createTestProbe();
+            // Send the message with probe.getRef() as sender
+            actor.tell(new GlobalDiversityActor.ComputeDiversity("movie", 10), probe.getRef());
 
-        actor.tell(new GlobalDiversityActor.ComputeDiversity("movie", mockJson, 10, probe.getRef()));
+            // Expect the result from the probe
+            GlobalDiversityResult result = probe.expectMsgClass(GlobalDiversityResult.class);
 
-        probe.expectMessage(expectedResult);
-
-        verify(mockService).compute("movie", mockJson, 10);
+            // Verify the computation
+            assert(result == expectedResult);
+            verify(mockService).compute("movie", mockJson, 10);
+        }};
     }
 }

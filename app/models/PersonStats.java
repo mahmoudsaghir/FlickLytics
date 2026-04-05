@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
  * @author Syed Shahab Shah
  */
 public class PersonStats {
-    private final List<MovieOrTVShow> latestItems;
+    private List<MovieOrTVShow> latestItems;
     private DoubleSummaryStatistics popularityStats;
     private DoubleSummaryStatistics voteAverageStats;
     private IntSummaryStatistics voteCountStats;
@@ -38,7 +38,16 @@ public class PersonStats {
      * @author Syed Shahab Shah
      */
     public PersonStats(List<MovieOrTVShow> allItems) {
-        // Guard against null to prevent crashes
+        setItems(allItems);
+    }
+
+    /**
+     * Replaces known-for items and recomputes summary statistics.
+     *
+     * @param allItems latest TMDb known-for items
+     * @author Syed Shahab Shah
+     */
+    public void setItems(List<MovieOrTVShow> allItems) {
         if (allItems == null) {
             this.latestItems = java.util.Collections.emptyList();
         } else {
@@ -47,7 +56,6 @@ public class PersonStats {
                     .limit(50)
                     .collect(Collectors.toList());
         }
-
         calculateStatistics();
     }
 
@@ -194,7 +202,7 @@ public class PersonStats {
      * @author Syed Shahab Shah
      */
     public void setPersonDetails(String name, String profilePath, String knownForDepartment,
-                                  int genderCode, String birthday, String placeOfBirth) {
+                                 int genderCode, String birthday, String placeOfBirth) {
         this.personName = (name != null) ? name : "Unknown";
         this.profilePhotoUrl = (profilePath != null && !profilePath.isEmpty())
                 ? "https://image.tmdb.org/t/p/w300" + profilePath : "";

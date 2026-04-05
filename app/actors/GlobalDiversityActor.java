@@ -1,109 +1,109 @@
 package actors;
 
-import models.GlobalDiversityResult;
-import org.apache.pekko.actor.typed.ActorRef;
-import org.apache.pekko.actor.typed.Behavior;
-import org.apache.pekko.actor.typed.javadsl.AbstractBehavior;
-import org.apache.pekko.actor.typed.javadsl.ActorContext;
-import org.apache.pekko.actor.typed.javadsl.Behaviors;
-
 import com.fasterxml.jackson.databind.JsonNode;
-import org.apache.pekko.actor.typed.javadsl.Receive;
+import models.GlobalDiversityResult;
+import org.apache.pekko.actor.AbstractActor;
+import org.apache.pekko.actor.Props;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import services.GlobalDiversityService;
+import services.TmdbService;
 
 /**
  * Actor responsible for computing Global Diversity metrics.
  *
  * @author Mahmoud Saghir
  */
-public class GlobalDiversityActor extends AbstractBehavior<GlobalDiversityActor.Command> {
+public class GlobalDiversityActor extends AbstractActor {
 
     private final GlobalDiversityService service;
-
-    /**
-     * Marker interface for actor commands.
-     *
-     * @author Mahmoud Saghir
-     */
-    public interface Command {}
+    private final TmdbService tmdbService;
+    private final String apiUrl;
+    private final String tmdbToken;
+    private final Logger logger = LoggerFactory.getLogger(GlobalDiversityActor.class);
 
     /**
      * Command to compute Global Diversity metrics.
      *
      * @author Mahmoud Saghir
      */
-    public static class ComputeDiversity implements Command {
+    public static class ComputeDiversity {
         public final String category;
-        public final JsonNode detailsAndTranslationRoot;
+        public final Long id;
         public final int targetLanguageConstant;
-        public final ActorRef<GlobalDiversityResult> replyTo;
 
         /**
          * Constructor for ComputeDiversity.
          *
-         * @param category movie or tv
-         * @param detailsAndTranslationRoot details and translations
+         * @param category               movie or tv
          * @param targetLanguageConstant normalization constant
-         * @param replyTo replyTor for sending the result back to the sender
          * @author Mahmoud Saghir
          */
-        public ComputeDiversity(String category, JsonNode detailsAndTranslationRoot, int targetLanguageConstant,
-                                ActorRef<GlobalDiversityResult> replyTo) {
+        public ComputeDiversity(String category, Long id, int targetLanguageConstant) {
             this.category = category;
-            this.detailsAndTranslationRoot = detailsAndTranslationRoot;
+            this.id = id;
             this.targetLanguageConstant = targetLanguageConstant;
-            this.replyTo = replyTo;
         }
-    }
-
-    /**
-     * Creates a new GlobalDiversityActor behavior.
-     *
-     * @return Behavior for the GlobalDiversityActor
-     * @author Mahmoud Saghir
-     */
-    public static Behavior<Command> create(GlobalDiversityService service) {
-        return Behaviors.setup(ctx -> new GlobalDiversityActor(ctx, service));
     }
 
     /**
      * Constructor for GlobalDiversityActor.
      *
-     * @param context Actor context
+     * @param service     GlobalDiversityService instance
+     * @param tmdbService TmdbService instance
+     * @param apiUrl      API URL string
+     * @param tmdbToken   TMDB token string
      * @author Mahmoud Saghir
      */
-    private GlobalDiversityActor(ActorContext<Command> context, GlobalDiversityService service) {
-        super(context);
+    public GlobalDiversityActor(GlobalDiversityService service, TmdbService tmdbService, String apiUrl, String tmdbToken) {
         this.service = service;
+        this.tmdbService = tmdbService;
+        this.apiUrl = apiUrl;
+        this.tmdbToken = tmdbToken;
     }
 
     /**
-     * Creates the receiver behavior for the GlobalDiversityActor.
+     * Creates Props for GlobalDiversityActor.
      *
-     * @return Receive behavior for the GlobalDiversityActor
+     * @param service GlobalDiversityService instance
+     * @return Props for creating GlobalDiversityActor
+     * @author Mahmoud Saghir
+     */
+    public static Props props(GlobalDiversityService service,
+                              services.TmdbService tmdbService,
+                              String apiUrl,
+                              String tmdbToken) {
+        return Props.create(GlobalDiversityActor.class,
+                () -> new GlobalDiversityActor(service, tmdbService, apiUrl, tmdbToken));
+    }
+
+    /**
+     * Creates receive builder for GlobalDiversityActor.
+     *
+     * @return Receive builder for GlobalDiversityActor
      * @author Mahmoud Saghir
      */
     @Override
-    public Receive<Command> createReceive() {
-        return newReceiveBuilder()
-                .onMessage(ComputeDiversity.class, this::onComputeDiversity)
+    public Receive createReceive() {
+        return receiveBuilder()
+                .match(ComputeDiversity.class, this::onComputeDiversity)
+                .matchAny(o -> logger.warn("Received unknown message: {}", o))
                 .build();
     }
 
     /**
-     * Handles ComputeDiversity command.
+     * Handles ComputeDiversity message by calling GlobalDiversityService.compute().
      *
      * @param msg ComputeDiversity message
-     * @return Behavior after handling the message
      * @author Mahmoud Saghir
      */
-    private Behavior<Command> onComputeDiversity(ComputeDiversity msg) {
-        GlobalDiversityResult result = service.compute(msg.category, msg.detailsAndTranslationRoot,
-                msg.targetLanguageConstant);
+    private void onComputeDiversity(ComputeDiversity msg) throws Exception {
+        logger.info("Received ComputeDiversity message: category={}, targetLanguageConstant={}", msg.category, msg.targetLanguageConstant);
 
-        // send a result back to the sender
-        msg.replyTo.tell(result);
+        JsonNode detailsAndTranslationRoot = tmdbService.getDetailsAndTranslations(apiUrl, tmdbToken, msg.category, msg.id);
+        GlobalDiversityResult result = service.compute(msg.category, detailsAndTranslationRoot, msg.targetLanguageConstant);
 
-        return this;
+        logger.info("Computed GlobalDiversityResult: {}", result);
+        getSender().tell(result, getSelf());
     }
 }

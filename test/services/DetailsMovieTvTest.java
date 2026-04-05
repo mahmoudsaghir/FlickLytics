@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.Readability.ReadabilityScores;
 import org.junit.Before;
 import org.junit.Test;
+import org.webjars.play.WebJarsUtil;
 import play.i18n.Messages;
 import play.i18n.MessagesApi;
 import play.mvc.Http;
@@ -19,6 +20,7 @@ public class DetailsMovieTvTest extends WithApplication {
     private ObjectMapper mapper;
     private Http.Request  request;
     private Messages      messages;
+    private WebJarsUtil webJarsUtil;
 
     // ── Scores helper ─────────────────────────────────────────────────────
     // Uses clean doubles to avoid floating-point rendering surprisesjaco
@@ -39,6 +41,7 @@ public class DetailsMovieTvTest extends WithApplication {
         mapper   = new ObjectMapper();
         request  = Helpers.fakeRequest().build();
         messages = app.injector().instanceOf(MessagesApi.class).preferred(request);
+        webJarsUtil = app.injector().instanceOf(org.webjars.play.WebJarsUtil.class);
     }
 
     // ── Render helper ─────────────────────────────────────────────────────
@@ -46,7 +49,7 @@ public class DetailsMovieTvTest extends WithApplication {
     private String render(String itemType, ObjectNode details,
                           String overview, ReadabilityScores scores) {
         return views.html.details
-                .render(itemType, details, overview, scores, request, messages)
+                .render(itemType, details, overview, scores, request, messages, webJarsUtil)
                 .body();
     }
 
