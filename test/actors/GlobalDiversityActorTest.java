@@ -65,7 +65,7 @@ public class GlobalDiversityActorTest {
             TestKit probe = new TestKit(system);
 
             // Send the message with probe.getRef() as sender
-            actor.tell(new GlobalDiversityActor.ComputeDiversity("movie", 10), probe.getRef());
+            actor.tell(new GlobalDiversityActor.ComputeDiversity("movie", 10L,0), probe.getRef());
 
             // Expect the result from the probe
             GlobalDiversityResult result = probe.expectMsgClass(GlobalDiversityResult.class);

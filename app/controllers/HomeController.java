@@ -478,8 +478,12 @@ public class HomeController extends Controller {
         // Using the concrete NotUsed type parameter avoids the compiler error
         // caused by assigning Source<JsonNode,NotUsed> to Source<JsonNode,?>.
         Pair<ActorRef, Source<JsonNode, NotUsed>> sourcePair =
-                Source.<JsonNode>actorRef(128, OverflowStrategy.dropHead())
-                        .preMaterialize(materializer);
+                Source.<JsonNode>actorRef(
+                        msg -> java.util.Optional.empty(),
+                        msg -> java.util.Optional.empty(),
+                        128,
+                        OverflowStrategy.dropHead()
+                ).preMaterialize(materializer);
 
         ActorRef                  wsOut    = sourcePair.first();
         Source<JsonNode, NotUsed> wsSource = sourcePair.second();
@@ -538,66 +542,10 @@ public class HomeController extends Controller {
         return Flow.fromSinkAndSource(inSink, wsSource);
     }
 
-    // ── Cache helpers ─────────────────────────────────────────────────────────
-
-    /**
-     * Builds a seed list from searchCache filtered by type and query.
-     * searchCache is keyed "type:id" and each value is a flat ObjectNode,
-     * populated by fetchAndRender when a details page is served.
-     * Results are reversed so the most recently fetched items come first.
-     *
-     * @param mediaType "movie", "tv", or "all" / blank for no type filter
-     * @param query     substring filter on title/name/overview (blank = no filter)
-     * @return list of matching ObjectNode items from the cache
-     * @author Zenghui WU
-     */
-    private List<ObjectNode> buildSeedItems(String mediaType, String query) {
-        List<ObjectNode> results = new ArrayList<>();
-        for (JsonNode node : searchCache.values()) {
-            if (node == null || !node.isObject()) continue;
-            ObjectNode item = (ObjectNode) node;
-            if (!matchesMediaType(item, mediaType)) continue;
-            if (!matchesQuery(item, query)) continue;
-            results.add(item);
-        }
-        // Most recently fetched items surface first.
-        Collections.reverse(results);
-        return results;
-    }
-
-    /**
-     * Type filter: "all" / blank accepts everything; otherwise matches the
-     * item's "type" field or falls back to the "link" path prefix.
-     *
-     * @author Zenghui WU
-     */
-    private boolean matchesMediaType(JsonNode item, String mediaType) {
-        if (mediaType == null || mediaType.isBlank() || "all".equalsIgnoreCase(mediaType)) {
-            return true;
-        }
-        String type = item.path("type").asText("");
-        if (!type.isBlank()) {
-            return mediaType.equalsIgnoreCase(type);
-        }
-        return item.path("link").asText("").startsWith("/" + mediaType + "/");
-    }
-
-    /**
-     * Query filter: blank query accepts everything; otherwise checks title,
-     * name, and overview fields (case-insensitive substring match).
-     *
-     * @author Zenghui WU
-     */
-    private boolean matchesQuery(JsonNode item, String query) {
-        if (query == null || query.isBlank()) return true;
-        String q        = query.toLowerCase();
-        String title    = item.path("title").asText("").toLowerCase();
-        String name     = item.path("name").asText("").toLowerCase();
-        String overview = item.path("overview").asText("").toLowerCase();
-        return title.contains(q) || name.contains(q) || overview.contains(q);
-    }
-
-
+    // ── Cache helpers -> share with Tasmia Naomi
+    //share buildSeedItems()'
+    //share mediatype();
+    //share matchesQuery();
 
     /**
      * An action that renders the reviews page with sentiment analysis for a given media item.
@@ -635,68 +583,69 @@ public class HomeController extends Controller {
             ));
         });
     }
-//    private List<ObjectNode> buildSeedItems(String mediaType, String query) {
-//        List<ObjectNode> results = new ArrayList<>();
-//
-//        for (JsonNode node : searchCache.values()) {
-//            if (node == null) {
-//                continue;
-//            }
-//
-//            JsonNode resultArray = node.path("results");
-//            if (!resultArray.isArray()) {
-//                continue;
-//            }
-//
-//            for (JsonNode item : resultArray) {
-//                if (!item.isObject()) {
-//                    continue;
-//                }
-//
-//                if (!matchesMediaType(item, mediaType)) {
-//                    continue;
-//                }
-//
-//                if (!matchesQuery(item, query)) {
-//                    continue;
-//                }
-//
-//                results.add((ObjectNode) item);
-//            }
-//        }
-//
-//        Collections.reverse(results);
-//        return results;
-//    }
 
-//    private boolean matchesMediaType(JsonNode item, String mediaType) {
-//        if (mediaType == null || mediaType.isBlank() || "all".equalsIgnoreCase(mediaType)) {
-//            return true;
-//        }
-//
-//        String type = item.path("type").asText("");
-//
-//        if (!type.isBlank()) {
-//            return mediaType.equalsIgnoreCase(type);
-//        }
-//
-//        String link = item.path("link").asText("");
-//        return link.startsWith("/" + mediaType + "/");
-//    }
+    private List<ObjectNode> buildSeedItems(String mediaType, String query) {
+        List<ObjectNode> results = new ArrayList<>();
 
-//    private boolean matchesQuery(JsonNode item, String query) {
-//        if (query == null || query.isBlank()) {
-//            return true;
-//        }
-//
-//        String q = query.toLowerCase();
-//
-//        String title = item.path("title").asText("").toLowerCase();
-//        String name = item.path("name").asText("").toLowerCase();
-//        String overview = item.path("overview").asText("").toLowerCase();
-//
-//        return title.contains(q) || name.contains(q) || overview.contains(q);
-//    }
+        for (JsonNode node : searchCache.values()) {
+            if (node == null) {
+                continue;
+            }
+
+            JsonNode resultArray = node.path("results");
+            if (!resultArray.isArray()) {
+                continue;
+            }
+
+            for (JsonNode item : resultArray) {
+                if (!item.isObject()) {
+                    continue;
+                }
+
+                if (!matchesMediaType(item, mediaType)) {
+                    continue;
+                }
+
+                if (!matchesQuery(item, query)) {
+                    continue;
+                }
+
+                results.add((ObjectNode) item);
+            }
+        }
+
+        Collections.reverse(results);
+        return results;
+    }
+
+    private boolean matchesMediaType(JsonNode item, String mediaType) {
+        if (mediaType == null || mediaType.isBlank() || "all".equalsIgnoreCase(mediaType)) {
+            return true;
+        }
+
+        String type = item.path("type").asText("");
+
+        if (!type.isBlank()) {
+            return mediaType.equalsIgnoreCase(type);
+        }
+
+        String link = item.path("link").asText("");
+        return link.startsWith("/" + mediaType + "/");
+    }
+
+    private boolean matchesQuery(JsonNode item, String query) {
+        if (query == null || query.isBlank()) {
+            return true;
+        }
+
+        String q = query.toLowerCase();
+
+        String title = item.path("title").asText("").toLowerCase();
+        String name = item.path("name").asText("").toLowerCase();
+        String overview = item.path("overview").asText("").toLowerCase();
+
+        return title.contains(q) || name.contains(q) || overview.contains(q);
+    }
 
     /**
      * An action that handles the search form submission and renders the search results page.

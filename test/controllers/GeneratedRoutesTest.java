@@ -50,7 +50,7 @@ public class GeneratedRoutesTest {
         assertTrue(tv.url().contains("/tv/2"));
         assertEquals("/", redirect.url());
 
-        assertTrue(withSlash.search().url().contains("flicklytics"));
+        assertTrue(withSlash.ws().url().contains("flicklytics"));
         assertTrue(withSlash.personStats("12").url().contains("/person/12/stats"));
         assertTrue(withSlash.reviews("movie", 10L).url().contains("/reviews/movie/10"));
         assertTrue(withSlash.globalDiversity("movie", 5).url().contains("global-diversity/movie/5"));
@@ -100,7 +100,7 @@ public class GeneratedRoutesTest {
         JavaScriptReverseRoute r1 = withSlash.index();
         JavaScriptReverseRoute r2 = withSlash.movie();
         JavaScriptReverseRoute r3 = withSlash.tv();
-        JavaScriptReverseRoute r4 = withSlash.search();
+        JavaScriptReverseRoute r4 = withSlash.ws();
         JavaScriptReverseRoute r5 = withSlash.redirectToFlicklytics();
         JavaScriptReverseRoute r6 = withSlash.personStats();
         JavaScriptReverseRoute r7 = withSlash.reviews();

@@ -30,11 +30,7 @@ import play.mvc.Http;
 import play.mvc.Result;
 import play.test.Helpers;
 import scala.runtime.AbstractFunction0;
-import services.GenreService;
-import services.GlobalDiversityService;
-import services.MediaDetailsService;
-import services.ReviewsService;
-import services.TmdbService;
+import services.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -104,7 +100,8 @@ public class HomeControllerTest {
                 reviewsService,
                 actorSystem,
                 supervisorActor,
-                materializer
+                materializer,
+                application.injector().instanceOf(MediaStreamService.class)
         );
     }
 
@@ -565,19 +562,13 @@ public class HomeControllerTest {
     }
 
     /**
-     * Tests search with form errors.
+     * Tests that the WebSocket search endpoint returns a non-null WebSocket handler.
      *
      * @author Mahmoud Saghir
      */
     @Test
-    public void testSearchWithFormErrors() {
-        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
-                .bodyForm(java.util.Map.of("query", ""))
-                .build();
-
-        Result result = controller.search(request).toCompletableFuture().join();
-        assertEquals(OK, result.status());
-        assertTrue(contentAsString(result).contains("Welcome to FlickLytics"));
+    public void testWsEndpointNotNull() {
+        assertNotNull(controller.ws());
     }
 
     /**
@@ -585,52 +576,52 @@ public class HomeControllerTest {
      *
      * @author Mahmoud Saghir
      */
-    @Test
-    public void testSearchMovieSuccessAndSessionHeader() throws Exception {
-        ObjectNode item = Json.newObject();
-        item.put("id", 100);
-        item.put("title", "The Matrix");
-        item.put("original_language", "en");
-        item.put("release_date", "1999-03-31");
-        item.put("popularity", 9.9);
-        item.put("vote_average", 8.7);
-        item.set("genre_ids", Json.newArray().add(28));
-
-        ObjectNode root = Json.newObject();
-        root.put("total_results", 1);
-        root.set("results", Json.newArray().add(item));
-
-        when(tmdbService.search(anyString(), anyString(), eq("matrix"), eq("movie"), 1)).thenReturn(root);
-
-        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
-                .bodyForm(java.util.Map.of("query", "matrix", "category", "movie"))
-                .build();
-
-        Result result = controller.search(request).toCompletableFuture().join();
-        assertEquals(OK, result.status());
-        assertTrue(contentAsString(result).contains("The Matrix"));
-        assertTrue(contentAsString(result).contains("Total results: 1"));
-    }
-
-    /**
-     * Tests search exception path in async fetch.
-     *
-     * @author Mahmoud Saghir
-     */
-    @Test
-    public void testSearchApiFailurePath() throws Exception {
-        when(tmdbService.search(anyString(), anyString(), eq("bad"), eq("tv"), 1))
-                .thenThrow(new RuntimeException("API down"));
-
-        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
-                .bodyForm(java.util.Map.of("query", "bad", "category", "tv"))
-                .session("searchHistory", "a,b,c,d,e,f,g,h,i,j,k")
-                .build();
-
-        Result result = controller.search(request).toCompletableFuture().join();
-        assertEquals(OK, result.status());
-        assertTrue(contentAsString(result).contains("Welcome to FlickLytics"));
-    }
+//    @Test
+//    public void testSearchMovieSuccessAndSessionHeader() throws Exception {
+//        ObjectNode item = Json.newObject();
+//        item.put("id", 100);
+//        item.put("title", "The Matrix");
+//        item.put("original_language", "en");
+//        item.put("release_date", "1999-03-31");
+//        item.put("popularity", 9.9);
+//        item.put("vote_average", 8.7);
+//        item.set("genre_ids", Json.newArray().add(28));
+//
+//        ObjectNode root = Json.newObject();
+//        root.put("total_results", 1);
+//        root.set("results", Json.newArray().add(item));
+//
+//        when(tmdbService.search(anyString(), anyString(), eq("matrix"), eq("movie"), 1)).thenReturn(root);
+//
+//        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
+//                .bodyForm(java.util.Map.of("query", "matrix", "category", "movie"))
+//                .build();
+//
+//        Result result = controller.search(request).toCompletableFuture().join();
+//        assertEquals(OK, result.status());
+//        assertTrue(contentAsString(result).contains("The Matrix"));
+//        assertTrue(contentAsString(result).contains("Total results: 1"));
+//    }
+//
+//    /**
+//     * Tests search exception path in async fetch.
+//     *
+//     * @author Mahmoud Saghir
+//     */
+//    @Test
+//    public void testSearchApiFailurePath() throws Exception {
+//        when(tmdbService.search(anyString(), anyString(), eq("bad"), eq("tv"), 1))
+//                .thenThrow(new RuntimeException("API down"));
+//
+//        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
+//                .bodyForm(java.util.Map.of("query", "bad", "category", "tv"))
+//                .session("searchHistory", "a,b,c,d,e,f,g,h,i,j,k")
+//                .build();
+//
+//        Result result = controller.search(request).toCompletableFuture().join();
+//        assertEquals(OK, result.status());
+//        assertTrue(contentAsString(result).contains("Welcome to FlickLytics"));
+//    }
 
     /**
      * Tests private parseMediaItem branches via reflection.
@@ -701,7 +692,8 @@ public class HomeControllerTest {
                 reviewsService,
                 actorSystem,
                 supervisorActor,
-                materializer
+                materializer,
+                application.injector().instanceOf(MediaStreamService.class)
         );
 
         Result result = localController.index(Helpers.fakeRequest(GET, "/flicklytics").build())
@@ -748,7 +740,8 @@ public class HomeControllerTest {
         assertTrue(withSlash.movie(1L).url().contains("/movie/1"));
         assertTrue(withSlash.tv(2L).url().contains("/tv/2"));
         assertEquals("/", withSlash.redirectToFlicklytics().url());
-        assertTrue(withSlash.search().url().contains("flicklytics"));
+        //assertTrue(withSlash.search().url().contains("flicklytics"));
+        assertTrue(withSlash.ws().url().contains("ws/search"));
         assertTrue(withSlash.personStats("12").url().contains("/person/12/stats"));
         assertTrue(withSlash.reviews("movie", 10L).url().contains("/reviews/movie/10"));
         assertTrue(withSlash.globalDiversity("movie", 5).url().contains("global-diversity/movie/5"));
@@ -800,7 +793,8 @@ public class HomeControllerTest {
         JavaScriptReverseRoute r1 = jsWithSlash.index();
         JavaScriptReverseRoute r2 = jsWithSlash.movie();
         JavaScriptReverseRoute r3 = jsWithSlash.tv();
-        JavaScriptReverseRoute r4 = jsWithSlash.search();
+        //JavaScriptReverseRoute r4 = jsWithSlash.search();
+        JavaScriptReverseRoute r4 = jsWithSlash.ws();
         JavaScriptReverseRoute r5 = jsWithSlash.redirectToFlicklytics();
         JavaScriptReverseRoute r6 = jsWithSlash.personStats();
         JavaScriptReverseRoute r7 = jsWithSlash.reviews();
