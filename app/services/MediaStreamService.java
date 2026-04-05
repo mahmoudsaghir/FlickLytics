@@ -105,7 +105,9 @@ public class MediaStreamService {
         node.set("genres", details.path("genres"));
         if("movie".equals(type)){
             node.put("title", details.path("title").asText(""));
-            node.put("release_date", details.path("release_date").asText());
+            node.put("release_date", details.path("release_date").asText(""));
+            node.put("runtime", details.path("runtime").asInt(0));
+
 
         }
 
