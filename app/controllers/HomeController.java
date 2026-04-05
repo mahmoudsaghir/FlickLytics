@@ -348,6 +348,7 @@ public class HomeController extends Controller {
     public CompletionStage<Result> tv(Long id, Http.Request request) {
         return fetchAndRender("tv", id, request);
     }
+    // Result -> HTTP response. such as ok()-> 200, internalServerError()-> HTTP 500;
 
     /**
      * Fetches details for a movie or TV show and renders the details page.
@@ -360,8 +361,16 @@ public class HomeController extends Controller {
      */
     private CompletionStage<Result> fetchAndRender(String type, Long id, Http.Request request) {
         Messages messages = messagesApi.preferred(request);
-
+        /*get messages object for the rurrent request.
+        aim: 1. supports i18n / localization 2. selects the appropriate language based on the request
+        * */
         return CompletableFuture.supplyAsync(() -> {
+
+            /*1.it runs the lambda in another thread and returns a future
+            * 2.this code calls the service layer:
+            * -> mediaDetailsService.getDetailsWithReadability(apiUrl, tmdbToken, type, id)
+            *
+            * */
             try {
                 return mediaDetailsService.getDetailsWithReadability(apiUrl, tmdbToken, type, id);
             } catch (Exception e) {
@@ -369,8 +378,13 @@ public class HomeController extends Controller {
                 return null;
             }
         }, clExecutionContext.current()).thenApply(result -> {
+            /*
+             clExecutionContext.current() is to specifies which thread pool context should run.
+            * This specifies which thread pool / execution context should run the async task.
+            */
+
             if (result == null || result.details == null) {
-                return internalServerError("Failed to fetch details");
+                return internalServerError("Failed to fetch details"); //http 500
             }
 
             return ok(views.html.details.render(
