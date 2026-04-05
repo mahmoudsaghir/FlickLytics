@@ -89,6 +89,25 @@ public class MediaStreamService {
     public static ObjectNode buildNode(String type, com.fasterxml.jackson.databind.JsonNode details,String overview ){
         ObjectNode node= Json.newObject();
         //fields used for filtering/ dedup in mediadetailsactor
+        node.put("type",type);
+        node.put("id",details.path("id").asText(""));
+        //common fields shown in details. scala.html for both movie and tv
+        node.put("overview",           overview);
+        node.put("popularity",         details.path("popularity").asDouble(0.0));
+        node.put("vote_average",       details.path("vote_average").asDouble(0.0));
+        node.put("vote_count",         details.path("vote_count").asInt(0));
+        node.put("status",             details.path("status").asText(""));
+        node.put("tagline",            details.path("tagline").asText(""));
+        node.put("original_language",  details.path("original_language").asText(""));
+        node.put("homepage",           details.path("homepage").asText(""));
+        node.put("poster_path",        details.path("poster_path").asText(""));
+        // Genre names (already resolved from genre_ids by the time details arrives)
+        node.set("genres", details.path("genres"));
+        if("movie".equals(type)){
+            node.put("title", details.path("title").asText(""));
+            node.put("release_date", details.path("release_date").asText());
+
+        }
 
     }
 
