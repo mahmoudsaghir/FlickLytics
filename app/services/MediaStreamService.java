@@ -1,7 +1,9 @@
 package services;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.inject.Inject;
 import jakarta.inject.Singleton;
+import org.apache.pekko.stream.Materializer;
 import org.apache.pekko.stream.javadsl.Source;
 import org.apache.pekko.stream.javadsl.SourceQueueWithComplete;
 
@@ -33,4 +35,8 @@ public class MediaStreamService {
     * queue-> broadcasthub pipeline
     * @param mat Pekko stream Materizlizer (injected by Play/Guice)
     * */
+    @Inject
+    public MediaStreamService(Materializer mat){
+
+    }
 }
