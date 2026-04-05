@@ -33,4 +33,3 @@ Compile / doc / javacOptions ++= Seq(
   "-windowtitle", "FlickLytics API Documentation",
   "-doctitle", "FlickLytics - TMDb Movie/TV Analytics"
 )
-

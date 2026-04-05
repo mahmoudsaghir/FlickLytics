@@ -22,8 +22,12 @@ public class SupervisorActor extends AbstractActor {
     private final String apiUrl;
     private final String tmdbToken;
 
+    // -------------------------------------------------------------------------
+    // Message classes
+    // -------------------------------------------------------------------------
+
     /**
-     * Message to create a child actor.
+     * Message to create a generic child actor.
      *
      * @author Mahmoud Saghir
      */
@@ -31,16 +35,27 @@ public class SupervisorActor extends AbstractActor {
         public final ActorRef out;
         public final Props props;
 
-        /**
-         * Constructor for CreateSearchActor.
-         *
-         * @param out   ActorRef to send messages back to the client
-         * @param props Props for creating the child actor
-         * @author Mahmoud Saghir
-         */
         public CreateSearchActor(ActorRef out, Props props) {
             this.out = out;
             this.props = props;
+        }
+    }
+
+    /**
+     * Instructs the supervisor to create a MediaDetailsActor child for a new
+     * WebSocket connection.
+     *
+     *       Classic ActorRef wired to the WebSocket ActorSource
+     *  initial type filter ("movie" or "tv")
+     * @author Zenghui WU
+     */
+    public static class CreateMediaDetailsActor {
+        public final ActorRef out;
+        public final String mediaType;
+
+        public CreateMediaDetailsActor(ActorRef out, String mediaType) {
+            this.out       = out;
+            this.mediaType = mediaType;
         }
     }
 
@@ -65,18 +80,26 @@ public class SupervisorActor extends AbstractActor {
                                   int genderCode,
                                   String birthday,
                                   String placeOfBirth) {
-            this.items = items;
-            this.name = name;
-            this.profilePath = profilePath;
+            this.items              = items;
+            this.name               = name;
+            this.profilePath        = profilePath;
             this.knownForDepartment = knownForDepartment;
-            this.genderCode = genderCode;
-            this.birthday = birthday;
-            this.placeOfBirth = placeOfBirth;
+            this.genderCode         = genderCode;
+            this.birthday           = birthday;
+            this.placeOfBirth       = placeOfBirth;
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Internal state
+    // -------------------------------------------------------------------------
+
     private ActorRef globalDiversityActor;
     private ActorRef personStatsActor;
+
+    // -------------------------------------------------------------------------
+    // Constructor
+    // -------------------------------------------------------------------------
 
     /**
      * Constructor for SupervisorActor.
@@ -92,24 +115,37 @@ public class SupervisorActor extends AbstractActor {
                            String apiUrl,
                            String tmdbToken) {
         this.globalDiversityService = globalDiversityService;
-        this.tmdbService = tmdbService;
-        this.apiUrl = apiUrl;
-        this.tmdbToken = tmdbToken;
+        this.tmdbService            = tmdbService;
+        this.apiUrl                 = apiUrl;
+        this.tmdbToken              = tmdbToken;
     }
 
+    // -------------------------------------------------------------------------
+    // Lifecycle
+    // -------------------------------------------------------------------------
+
     /**
-     * Creates the GlobalDiversityActor before starting the actor.
+     * Creates the GlobalDiversityActor and PersonStatsActor before starting.
      *
      * @author Mahmoud Saghir
      */
     @Override
     public void preStart() {
+        getContext().getSystem().log().info("SupervisorActor started — spawning children");
         globalDiversityActor = getContext().actorOf(
                 Props.create(GlobalDiversityActor.class, () ->
-                        new GlobalDiversityActor(globalDiversityService, tmdbService, apiUrl, tmdbToken)), "globalDiversityActor"
+                        new GlobalDiversityActor(
+                                globalDiversityService, tmdbService, apiUrl, tmdbToken)),
+                "globalDiversityActor"
         );
-        personStatsActor = getContext().actorOf(PersonStatsActor.props(null), "personStatsActor");
+        personStatsActor = getContext().actorOf(
+                PersonStatsActor.props(null), "personStatsActor");
+        getContext().getSystem().log().info("Children ready: globalDiversityActor, personStatsActor");
     }
+
+    // -------------------------------------------------------------------------
+    // Message dispatch
+    // -------------------------------------------------------------------------
 
     /**
      * Creates receive builder for SupervisorActor.
@@ -120,11 +156,25 @@ public class SupervisorActor extends AbstractActor {
     @Override
     public Receive createReceive() {
         return receiveBuilder()
+
+                // Generic search actor creation
                 .match(CreateSearchActor.class, msg -> {
                     ActorRef child = getContext().actorOf(msg.props);
                     getSender().tell(child, getSelf());
                 })
-                .match(GlobalDiversityActor.ComputeDiversity.class, msg -> globalDiversityActor.forward(msg, getContext()))
+
+                // MediaDetailsActor creation for WebSocket connections
+                .match(CreateMediaDetailsActor.class, msg -> {
+                    ActorRef child = getContext().actorOf(
+                            MediaDetailsActor.props(msg.out, msg.mediaType));
+                    getSender().tell(child, getSelf());
+                })
+
+                // Diversity scoring
+                .match(GlobalDiversityActor.ComputeDiversity.class, msg ->
+                        globalDiversityActor.forward(msg, getContext()))
+
+                // Person stats
                 .match(ComputePersonStats.class, msg -> {
                     ActorRef replyTo = getSender();
                     Patterns.pipe(
@@ -144,8 +194,13 @@ public class SupervisorActor extends AbstractActor {
                             getContext().dispatcher()
                     ).to(replyTo);
                 })
+
                 .build();
     }
+
+    // -------------------------------------------------------------------------
+    // Supervision
+    // -------------------------------------------------------------------------
 
     /**
      * Supervisor strategy for handling actor failures.
@@ -158,7 +213,8 @@ public class SupervisorActor extends AbstractActor {
         return new OneForOneStrategy(
                 10,
                 Duration.ofMinutes(1),
-                DeciderBuilder.match(Exception.class, e -> {
+                DeciderBuilder
+                        .match(Exception.class, e -> {
                             System.out.println("Restarting actor due to: " + e.getMessage());
                             return SupervisorStrategy.restart();
                         })

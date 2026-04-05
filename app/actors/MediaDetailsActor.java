@@ -1,117 +1,253 @@
 package actors;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.pekko.actor.typed.ActorRef;
-import org.apache.pekko.actor.typed.Behavior;
-import org.apache.pekko.actor.typed.javadsl.AbstractBehavior;
-import org.apache.pekko.actor.typed.javadsl.ActorContext;
-import org.apache.pekko.actor.typed.javadsl.Behaviors;
-import org.apache.pekko.actor.typed.javadsl.Receive;
+import org.apache.pekko.actor.AbstractActor;
+import org.apache.pekko.actor.ActorRef;
+import org.apache.pekko.actor.Props;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
  * Per-WebSocket-connection actor for the movie/TV details live stream.
  *
  * Responsibilities:
- *  1. Filter incoming broadcast items by mediaType ("movie" or "tv")
- *  2. Deduplicate items by their TMDb id so the same item is never pushed twice
- *  3. Forward matching, unseen items to the WebSocket output channel (out)
+ *  1. On StartSession  — seed the browser with pre-cached items matching the
+ *                        initial mediaType/query, then record their IDs.
+ *  2. On NewItem       — forward broadcast items that match the current filter
+ *                        and have not been sent before (dedup by TMDb id).
+ *  3. On ChangeSearch  — switch filter (type + query), clear the dedup set,
+ *                        and immediately push the new seed batch.
+ *  4. On STOP          — stop the actor (browser disconnected).
+ *
+ * Uses Pekko Classic so it integrates directly with the Classic SupervisorActor.
  *
  * @author Zenghui WU
  */
-public class MediaDetailsActor extends AbstractBehavior<MediaDetailsActor.Command> {
-    //base type for all message this actor
-    public interface Command{}
-/*
-* sent by the stream subscription for every item that arrives on the shared BroadcastHub
-* the actor decides whether to forward it.
-* */
-    public record NewItem(ObjectNode item) implements  Command{}
-    /*
-    * send by the inbound webscoket sink when the browser changes the filter
-    * user navigates from a movie to TV
-    */
-    public record ChangeType(String type) implements Command{}
-    /*
-    * sent when the websocket stream completes (browser disconnects)
-    * causes the actor to stop itself
-    * */
-    public enum Stop implements  Command{INSTANCE}
-    //Internal state
+public class MediaDetailsActor extends AbstractActor {
 
-    /*Websocket output channel - everything told to this ref reaches the browser*/
-    private final ActorRef<JsonNode> out;
-    // current filter: movie or tv;
+    // -------------------------------------------------------------------------
+    // Message classes
+    // -------------------------------------------------------------------------
+
+    /**
+     * Sent once after the actor is created, to seed the client with cached
+     * items and record the initial filter state.
+     */
+    public static class StartSession {
+        public final String mediaType;
+        public final String query;
+        public final List<ObjectNode> seedItems;
+
+        public StartSession(String mediaType, String query, List<ObjectNode> seedItems) {
+            this.mediaType = mediaType;
+            this.query     = query;
+            this.seedItems = seedItems;
+        }
+    }
+
+    /**
+     * Sent by the broadcast-hub subscription for every item that arrives.
+     * The actor decides whether to forward it to the WebSocket.
+     */
+    public static class NewItem {
+        public final ObjectNode item;
+
+        public NewItem(ObjectNode item) {
+            this.item = item;
+        }
+    }
+
+    /**
+     * Sent by the inbound WebSocket sink when the browser changes the search
+     * filter (type, query, or both). Carries a fresh seed batch for the new filter.
+     */
+    public static class ChangeSearch {
+        public final String mediaType;
+        public final String query;
+        public final List<ObjectNode> seedItems;
+
+        public ChangeSearch(String mediaType, String query, List<ObjectNode> seedItems) {
+            this.mediaType = mediaType;
+            this.query     = query;
+            this.seedItems = seedItems;
+        }
+    }
+
+    /**
+     * Sent when the WebSocket stream completes (browser disconnects).
+     * Causes the actor to stop itself.
+     */
+    public static final Object STOP = "stop";
+
+    // -------------------------------------------------------------------------
+    // Internal state
+    // -------------------------------------------------------------------------
+
+    /** WebSocket output channel — everything told to this ref reaches the browser. */
+    private final ActorRef out;
+
+    /** Current type filter: "movie", "tv", or "all". */
     private String mediaType;
 
-    /*TMDb IDs already forwarded in this session.
-    * prevents the same item appearing twice when the broadcast re-emits it.*/
-    private final Set<String> seenIds = new HashSet<>();
-    //---factory---
+    /** Current text filter (may be blank = match everything). */
+    private String query;
+
     /**
-     * Creates the initial Behavior for this actor.
+     * TMDb IDs already forwarded in this session.
+     * Prevents the same item appearing twice when the broadcast re-emits it.
+     */
+    private final Set<String> seenIds = new HashSet<>();
+
+    // -------------------------------------------------------------------------
+    // Factory
+    // -------------------------------------------------------------------------
+
+    /**
+     * Creates Props for this actor.
      *
-     * @param out       ActorRef connected to the WebSocket outbound source
-     * @param mediaType "movie" or "tv"
-     * @return Behavior ready to receive Command messages
+     * @param out       Classic ActorRef connected to the WebSocket ActorSource
+     * @param mediaType initial type filter ("movie" or "tv")
+     * @return Props ready for actorOf()
      * @author Zenghui WU
      */
-
-    public static Behavior<Command> create (ActorRef<JsonNode> out, String mediaType){
-        return Behaviors.setup(ctx -> new MediaDetailsActor(ctx, out, mediaType));
+    public static Props props(ActorRef out, String mediaType) {
+        return Props.create(MediaDetailsActor.class, () ->
+                new MediaDetailsActor(out, mediaType));
     }
-    private MediaDetailsActor(ActorContext<Command> ctx, ActorRef<JsonNode> out, String mediaType){
-        super(ctx);
-        this.out = out;
+
+    private MediaDetailsActor(ActorRef out, String mediaType) {
+        this.out       = out;
         this.mediaType = mediaType;
-
+        this.query     = "";
     }
-    //---message dispatch---
 
+    // -------------------------------------------------------------------------
+    // Message dispatch
+    // -------------------------------------------------------------------------
 
     @Override
-    public Receive<MediaDetailsActor.Command> createReceive() {
-        return newReceiveBuilder()
-                .onMessage(NewItem.class, this::onNewItem)
-                .onMessage(ChangeType.class, this::onChangeType)
-                .onMessageEquals(Stop.INSTANCE, Behaviors::stopped)
+    public Receive createReceive() {
+        return receiveBuilder()
+                .match(StartSession.class, this::onStartSession)
+                .match(NewItem.class,      this::onNewItem)
+                .match(ChangeSearch.class, this::onChangeSearch)
+                .matchEquals(STOP,         msg -> getContext().stop(getSelf()))
                 .build();
     }
+
+    // -------------------------------------------------------------------------
+    // Handlers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Seeds the client with pre-cached items for the initial filter, then
+     * records their IDs so they are not duplicated by later NewItem messages.
+     *
+     * @param msg the StartSession message
+     * @author Zenghui WU
+     */
+    private void onStartSession(StartSession msg) {
+        System.out.println("[MediaDetailsActor] session started, filter=" + msg.mediaType
+                + " seed size=" + msg.seedItems.size());
+        System.out.flush();
+        this.mediaType = msg.mediaType;
+        this.query     = msg.query;
+        seenIds.clear();
+        pushSeed(msg.seedItems);
+    }
+
     /**
      * Handles a new item arriving from the broadcast hub.
-     * Forwards it only if it matches the current mediaType and has not been sent before.
+     * Forwards it only if it passes the current type + query filter and has
+     * not been sent before in this session.
      *
      * @param msg the incoming NewItem message
-     * @return this (same behavior, updated seenIds state)
      * @author Zenghui WU
      */
-    private Behavior<Command> onNewItem(NewItem msg){
-        ObjectNode item = msg.item();
-        String id = item.path("id").asText("");
-        String itemType = item.path("type").asText("");
-
-        //only forward if type matches and have not sent this id before
-        if(mediaType.equals(itemType) && !id.isEmpty()&&seenIds.add(id)){
-            out.tell(item);
+    private void onNewItem(NewItem msg) {
+        ObjectNode item = msg.item;
+        String id       = item.path("id").asText("");
+        String type     = item.path("type").asText("");
+        System.out.println("[MediaDetailsActor] received id=" + id
+                + " type=" + type
+                + " filter=" + mediaType
+                + " matches=" + matchesFilter(item));
+        if (!id.isEmpty() && matchesFilter(item) && seenIds.add(id)) {
+            System.out.println("[MediaDetailsActor] forwarded id=" + id + " to WebSocket");
+            out.tell(item, getSelf());
         }
-        return this;
     }
+
+
+
     /**
-     * Handles a type-change request from the browser.
-     * Clears the dedup set so the new filter starts fresh.
+     * Switches the active filter (type + query), clears the dedup set so the
+     * new filter starts fresh, then immediately pushes the supplied seed batch.
      *
-     * @param msg the ChangeType message containing the new type string
-     * @return this (same behavior, cleared seenIds)
+     * Clearing seenIds is intentional: items seen under the old filter are
+     * eligible again if they match the new one.
+     *
+     * @param msg the ChangeSearch message
      * @author Zenghui WU
      */
-
-    private Behavior<Command> onChangeType(ChangeType msg){
-        this.mediaType = msg.type();
-        this.seenIds.clear();
-        return this;
+    private void onChangeSearch(ChangeSearch msg) {
+        this.mediaType = msg.mediaType;
+        this.query     = msg.query;
+        seenIds.clear();
+        pushSeed(msg.seedItems);
     }
 
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Sends each seed item to the WebSocket output, recording its ID so
+     * subsequent NewItem messages do not duplicate it.
+     */
+    private void pushSeed(List<ObjectNode> seedItems) {
+        for (ObjectNode item : seedItems) {
+            String id = item.path("id").asText("");
+            if (!id.isEmpty() && seenIds.add(id)) {
+                out.tell(item, getSelf());
+            }
+        }
+    }
+
+    /** Returns true if the item passes both the type and query filters. */
+    private boolean matchesFilter(ObjectNode item) {
+        return matchesType(item) && matchesQuery(item);
+    }
+
+    /**
+     * Type filter: "all" / blank accepts everything; otherwise matches the
+     * item's "type" field or falls back to the "link" path prefix.
+     */
+    private boolean matchesType(ObjectNode item) {
+        if (mediaType == null || mediaType.isBlank() || "all".equalsIgnoreCase(mediaType)) {
+            return true;
+        }
+        String itemType = item.path("type").asText("");
+        if (!itemType.isBlank()) {
+            return mediaType.equalsIgnoreCase(itemType);
+        }
+        return item.path("link").asText("").startsWith("/" + mediaType + "/");
+    }
+
+    /**
+     * Query filter: blank query accepts everything; otherwise checks title,
+     * name, and overview fields (case-insensitive substring match).
+     */
+    private boolean matchesQuery(ObjectNode item) {
+        if (query == null || query.isBlank()) {
+            return true;
+        }
+        String q        = query.toLowerCase();
+        String title    = item.path("title").asText("").toLowerCase();
+        String name     = item.path("name").asText("").toLowerCase();
+        String overview = item.path("overview").asText("").toLowerCase();
+        return title.contains(q) || name.contains(q) || overview.contains(q);
+    }
 }
