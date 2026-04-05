@@ -4,8 +4,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.pekko.stream.Materializer;
+import org.apache.pekko.stream.OverflowStrategy;
+import org.apache.pekko.stream.javadsl.BroadcastHub;
+import org.apache.pekko.stream.javadsl.Keep;
 import org.apache.pekko.stream.javadsl.Source;
 import org.apache.pekko.stream.javadsl.SourceQueueWithComplete;
+import play.libs.Json;
 
 /*
  * singleton serivce that owns the shared Pekko Broadcasthub for live movie/tv detail updates
@@ -37,6 +41,82 @@ public class MediaStreamService {
     * */
     @Inject
     public MediaStreamService(Materializer mat){
-
+        var pair = Source
+                .<ObjectNode> queue(512, OverflowStrategy.dropHead())
+                .toMat(BroadcastHub.of(ObjectNode.class,512), Keep.both())
+                .run(mat);
+        this.queue = pair.first();
+        this.broadcastSource = pair.second();
+    }
+    /**
+     * returns the shared broadcast source/
+     * each subscriber independently receives every item pushed after it subscribves
+     *  @author Zenghui WU
+     *  @return a source backed by the broadcasthub
+     */
+    public Source<ObjectNode,?> liveSource(){
+        return broadcastSource;
+    }
+    /**
+     * Pushes a media-detail ObjectNode into the broadcast hub so that all
+     * connected WebSocket clients receive it.
+     *
+     * The node must contain at minimum:
+     *   "id"   (String) — TMDb id, used for deduplication in the actor
+     *   "type" (String) — "movie" or "tv", used for filtering in the actor
+     *
+     * Called from HomeController.fetchAndRender() after a successful TMDb fetch.
+     *
+     * @param item the ObjectNode to broadcast
+     * @author Zenghui WU
+     */
+    public void push(ObjectNode item){
+        queue.offer(item);
+    }
+    /**
+     * Convenience factory: builds a broadcast-ready ObjectNode from the raw
+     * TMDb details JsonNode that fetchAndRender() already has in hand.
+     *
+     * Only the fields actually rendered in details.scala.html are included,
+     * keeping the WebSocket payload small.
+     *
+     * @param type    "movie" or "tv"
+     * @param details the raw JsonNode returned by TmdbService.getDetails()
+     * @param overview the plain-text overview string
+     * @return an ObjectNode suitable for push() and for JSON serialisation
+     * @author Zenghui WU
+     */
+    public static ObjectNode buildNode(String type, com.fasterxml.jackson.databind.JsonNode details,String overview ){
+        ObjectNode node= Json.newObject();
+        //fields used for filtering/ dedup in mediadetailsactor
+        node.put("type",type);
+        node.put("id",details.path("id").asText(""));
+        //common fields shown in details. scala.html for both movie and tv
+        node.put("overview",           overview);
+        node.put("popularity",         details.path("popularity").asDouble(0.0));
+        node.put("vote_average",       details.path("vote_average").asDouble(0.0));
+        node.put("vote_count",         details.path("vote_count").asInt(0));
+        node.put("status",             details.path("status").asText(""));
+        node.put("tagline",            details.path("tagline").asText(""));
+        node.put("original_language",  details.path("original_language").asText(""));
+        node.put("homepage",           details.path("homepage").asText(""));
+        node.put("poster_path",        details.path("poster_path").asText(""));
+        // Genre names (already resolved from genre_ids by the time details arrives)
+        node.set("genres", details.path("genres"));
+        if("movie".equals(type)){
+            node.put("title", details.path("title").asText(""));
+            node.put("release_date", details.path("release_date").asText(""));
+            node.put("runtime", details.path("runtime").asInt(0));
+            node.set("production_companies", details.path("production_companies"));
+        }else{
+            node.put("name",                 details.path("name").asText(""));
+            node.put("first_air_date",       details.path("first_air_date").asText(""));
+            node.put("last_air_date",        details.path("last_air_date").asText(""));
+            node.put("number_of_seasons",    details.path("number_of_seasons").asInt(0));
+            node.put("number_of_episodes",   details.path("number_of_episodes").asInt(0));
+            node.put("type_field",           details.path("type").asText(""));
+            node.set("networks",             details.path("networks"));
+        }
+        return node;
     }
 }
