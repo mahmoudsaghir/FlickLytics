@@ -843,14 +843,14 @@ public class TMDbServiceTest {
 
         try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
             mockedUtils.when(() -> Utils.sendGetRequest(
-                            eq("http://api.tmdb.org/3/search/movie?query=Spider%20Man"), eq("token")))
+                            eq("http://api.tmdb.org/3/search/movie?query=Spider%20Man&page=1"), eq("token")))
                     .thenReturn(mockNode);
 
             JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Spider Man", "movie", 1);
 
             assertSame(mockNode, result);
             mockedUtils.verify(() -> Utils.sendGetRequest(
-                    eq("http://api.tmdb.org/3/search/movie?query=Spider%20Man"), eq("token")));
+                    eq("http://api.tmdb.org/3/search/movie?query=Spider%20Man&page=1"), eq("token")));
         }
     }
 
@@ -866,7 +866,7 @@ public class TMDbServiceTest {
 
         try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
             mockedUtils.when(() -> Utils.sendGetRequest(
-                            eq("http://api.tmdb.org/3/search/tv?query=Breaking%20Bad"), eq("token")))
+                            eq("http://api.tmdb.org/3/search/tv?query=Breaking%20Bad&page=1"), eq("token")))
                     .thenReturn(mockNode);
 
             JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Breaking Bad", "tv", 1);
@@ -887,7 +887,7 @@ public class TMDbServiceTest {
 
         try (MockedStatic<Utils> mockedUtils = mockStatic(Utils.class)) {
             mockedUtils.when(() -> Utils.sendGetRequest(
-                            eq("http://api.tmdb.org/3/search/person?query=Tom%20Hanks"), eq("token")))
+                            eq("http://api.tmdb.org/3/search/person?query=Tom%20Hanks&page=1"), eq("token")))
                     .thenReturn(mockNode);
 
             JsonNode result = tmdbService.search("http://api.tmdb.org/3/", "token", "Tom Hanks", "person", 1);

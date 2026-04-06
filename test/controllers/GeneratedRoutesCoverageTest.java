@@ -54,7 +54,7 @@ public class GeneratedRoutesCoverageTest {
         assertEquals("/", redirect.url());
 
         // Also touch remaining reverse methods
-        assertTrue(withSlash.ws().url().contains("flicklytics"));
+        assertTrue(withSlash.ws().url().contains("ws/search"));
         assertTrue(withSlash.personStats("12").url().contains("/person/12/stats"));
         assertTrue(withSlash.reviews("movie", 10L).url().contains("/reviews/movie/10"));
         assertTrue(withSlash.globalDiversity("movie", 5).url().contains("global-diversity/movie/5"));

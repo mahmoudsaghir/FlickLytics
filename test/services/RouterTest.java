@@ -24,8 +24,6 @@ public class RouterTest extends WithApplication {
     private void assertRouteTwice(String method, String uri, int expectedStatus) {
         Result first = route(app, Helpers.fakeRequest().method(method).uri(uri));
         assertEquals(expectedStatus, first.status());
-
-        // Hit the exact same route twice in one app lifecycle to exercise lazy-val branches.
         Result second = route(app, Helpers.fakeRequest().method(method).uri(uri));
         assertEquals(expectedStatus, second.status());
     }
@@ -33,7 +31,6 @@ public class RouterTest extends WithApplication {
     private void assertRouteNotFoundTwice(String method, String uri) {
         Result first = route(app, Helpers.fakeRequest().method(method).uri(uri));
         assertEquals(NOT_FOUND, first.status());
-
         Result second = route(app, Helpers.fakeRequest().method(method).uri(uri));
         assertEquals(NOT_FOUND, second.status());
     }
@@ -42,26 +39,25 @@ public class RouterTest extends WithApplication {
     public void testHomeRouteExists() {
         Http.RequestBuilder request = Helpers.fakeRequest()
                 .method(GET)
-                .uri("/flicklytics"); // Updated from "/" to match your index
+                .uri("/flicklytics");
         Result result = route(app, request);
         assertEquals(OK, result.status());
     }
 
     @Test
     public void testSearchRoute() {
-        // Your routes file defines search as a POST request
-        Http.RequestBuilder request = Helpers.fakeRequest()
-                .method(POST)
-                .uri("/flicklytics?query=batman");
-        Result result = route(app, request);
-        assertNotEquals(NOT_FOUND, result.status());
+        // WebSocket endpoints cannot be tested via route() — it returns null for WS handlers.
+        // Instead verify the route is defined via the router directly.
+        router.Routes injectedRoutes = app.injector().instanceOf(router.Routes.class);
+        scala.PartialFunction<play.api.mvc.RequestHeader, play.api.mvc.Handler> pf = injectedRoutes.routes();
+        assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(GET).uri("/ws/search").build().asScala()));
     }
 
     @Test
     public void testDetailsMovieRoute() {
         Http.RequestBuilder request = Helpers.fakeRequest()
                 .method(GET)
-                .uri("/flicklytics/movie/550"); // Path corrected
+                .uri("/flicklytics/movie/550");
         Result result = route(app, request);
         assertEquals(OK, result.status());
     }
@@ -70,7 +66,7 @@ public class RouterTest extends WithApplication {
     public void testDetailsTvRoute() {
         Http.RequestBuilder request = Helpers.fakeRequest()
                 .method(GET)
-                .uri("/flicklytics/tv/1396"); // Path corrected
+                .uri("/flicklytics/tv/1396");
         Result result = route(app, request);
         assertEquals(OK, result.status());
     }
@@ -79,7 +75,7 @@ public class RouterTest extends WithApplication {
     public void testPersonStatsRoute() {
         Http.RequestBuilder request = Helpers.fakeRequest()
                 .method(GET)
-                .uri("/person/123/stats"); // Path corrected to include /stats
+                .uri("/person/123/stats");
         Result result = route(app, request);
         assertEquals(OK, result.status());
     }
@@ -165,7 +161,8 @@ public class RouterTest extends WithApplication {
 
         assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(GET).uri("/").build().asScala()));
         assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(GET).uri("/flicklytics").build().asScala()));
-        assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(POST).uri("/flicklytics").build().asScala()));
+        // FIX: POST /flicklytics no longer exists — search is now GET /ws/search
+        assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(GET).uri("/ws/search").build().asScala()));
         assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(GET)
                 .uri("/flicklytics/global-diversity/movie/550").build().asScala()));
         assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(GET).uri("/person/123/stats").build().asScala()));
@@ -182,10 +179,10 @@ public class RouterTest extends WithApplication {
         assertFalse(pf.isDefinedAt(Helpers.fakeRequest().method(GET).uri("/flicklytics/unknown").build().asScala()));
         assertFalse(pf.isDefinedAt(Helpers.fakeRequest().method(DELETE).uri("/flicklytics/movie/550").build().asScala()));
 
-        // Invoke the same checks again to exercise already-initialized router branches.
+        // Hit same routes again to exercise already-initialized router branches
         assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(GET).uri("/").build().asScala()));
         assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(GET).uri("/flicklytics").build().asScala()));
-        assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(POST).uri("/flicklytics").build().asScala()));
+        assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(GET).uri("/ws/search").build().asScala()));
         assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(GET)
                 .uri("/flicklytics/global-diversity/movie/550").build().asScala()));
         assertTrue(pf.isDefinedAt(Helpers.fakeRequest().method(GET).uri("/person/123/stats").build().asScala()));
@@ -219,7 +216,8 @@ public class RouterTest extends WithApplication {
 
         assertNotNull(pf.applyOrElse(Helpers.fakeRequest().method(GET).uri("/").build().asScala(), fallback));
         assertNotNull(pf.applyOrElse(Helpers.fakeRequest().method(GET).uri("/flicklytics").build().asScala(), fallback));
-        assertNotNull(pf.applyOrElse(Helpers.fakeRequest().method(POST).uri("/flicklytics").build().asScala(), fallback));
+        // FIX: POST /flicklytics removed — use GET /ws/search instead
+        assertNotNull(pf.applyOrElse(Helpers.fakeRequest().method(GET).uri("/ws/search").build().asScala(), fallback));
         assertNotNull(pf.applyOrElse(Helpers.fakeRequest().method(GET)
                 .uri("/flicklytics/global-diversity/movie/550").build().asScala(), fallback));
         assertNotNull(pf.applyOrElse(Helpers.fakeRequest().method(GET).uri("/person/123/stats").build().asScala(), fallback));
@@ -260,7 +258,6 @@ public class RouterTest extends WithApplication {
             }
         };
 
-        // Race first-touch reads on fresh Routes instances to exercise lazy-val synchronization branches.
         for (int i = 0; i < 30; i++) {
             String prefix = "/race" + i;
             for (String suffix : suffixes) {

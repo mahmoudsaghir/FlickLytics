@@ -35,12 +35,13 @@ public class TmdbService {
         String searchUrl = apiUrl + "search/";
 
         switch (category) {
-            case "movie" -> searchUrl += "movie?query=" + encodedQuery;
-            case "tv" -> searchUrl += "tv?query=" + encodedQuery;
-            case "person" -> searchUrl += "person?query=" + encodedQuery;
+            case "movie" -> { return Utils.sendGetRequest(searchUrl + "movie?query=" + encodedQuery + "&page=" + currentPage, token); }
+            case "tv"    -> { return Utils.sendGetRequest(searchUrl + "tv?query=" + encodedQuery + "&page=" + currentPage, token); }
+            case "person"-> { return Utils.sendGetRequest(searchUrl + "person?query=" + encodedQuery + "&page=" + currentPage, token); }
+            default      -> { return Utils.sendGetRequest(searchUrl, token); }
         }
 
-        return Utils.sendGetRequest(searchUrl + "&page=" + currentPage, token);
+       // return Utils.sendGetRequest(searchUrl + "&page=" + currentPage, token);
     }
 
     /**
