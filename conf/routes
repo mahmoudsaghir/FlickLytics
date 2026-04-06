@@ -25,3 +25,6 @@ GET        /flicklytics/reviews/:type/:id                     controllers.HomeCo
 
 # WebSocket endpoint for real-time search updates
 GET        /ws/search                                         controllers.HomeController.ws()
+
+GET     /ws/movie                   controllers.HomeController.movieWs()
+GET     /ws/tv                      controllers.HomeController.tvWs()

@@ -1,5 +1,9 @@
-package controllers;
+package services;
 
+import controllers.Assets;
+import controllers.ReverseAssets;
+import controllers.ReverseHomeController;
+import controllers.routes;
 import org.junit.Test;
 import play.api.routing.JavaScriptReverseRoute;
 import play.mvc.Call;
@@ -18,7 +22,7 @@ public class GeneratedRoutesTest {
 
     @Test
     public void testControllersRoutesConstructorsAndStatics() {
-        assertNotNull(new routes());
+        assertNotNull(new controllers.routes());
         assertNotNull(new routes.javascript());
         assertNotNull(routes.javascript.HomeController);
         assertNotNull(routes.javascript.Assets);
@@ -50,6 +54,7 @@ public class GeneratedRoutesTest {
         assertTrue(tv.url().contains("/tv/2"));
         assertEquals("/", redirect.url());
 
+        // FIX: search() replaced by ws() — route is now GET /ws/search
         assertTrue(withSlash.ws().url().contains("ws/search"));
         assertTrue(withSlash.personStats("12").url().contains("/person/12/stats"));
         assertTrue(withSlash.reviews("movie", 10L).url().contains("/reviews/movie/10"));
@@ -100,6 +105,7 @@ public class GeneratedRoutesTest {
         JavaScriptReverseRoute r1 = withSlash.index();
         JavaScriptReverseRoute r2 = withSlash.movie();
         JavaScriptReverseRoute r3 = withSlash.tv();
+        // FIX: search() replaced by ws()
         JavaScriptReverseRoute r4 = withSlash.ws();
         JavaScriptReverseRoute r5 = withSlash.redirectToFlicklytics();
         JavaScriptReverseRoute r6 = withSlash.personStats();
@@ -139,4 +145,3 @@ public class GeneratedRoutesTest {
         assertNotNull(jsAssetsWithoutSlash.versioned());
     }
 }
-

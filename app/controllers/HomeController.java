@@ -1,9 +1,11 @@
 package controllers;
 
 import actors.GlobalDiversityActor;
+import actors.MediaDetailsActor;
 import actors.SearchWebSocketActor;
 import actors.SupervisorActor;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import forms.SearchForm;
 import models.FinancialPerformance;
@@ -13,9 +15,14 @@ import models.PersonStats;
 import org.apache.pekko.actor.ActorRef;
 import org.apache.pekko.actor.ActorSystem;
 import org.apache.pekko.actor.Props;
+import org.apache.pekko.japi.Pair;
 import org.apache.pekko.pattern.Patterns;
 import org.apache.pekko.stream.Materializer;
 import org.apache.pekko.stream.OverflowStrategy;
+import org.apache.pekko.stream.javadsl.Flow;
+import org.apache.pekko.stream.javadsl.Sink;
+import org.apache.pekko.stream.javadsl.Source;
+import org.apache.pekko.NotUsed;
 import org.webjars.play.WebJarsUtil;
 import play.data.Form;
 import play.data.FormFactory;
@@ -27,19 +34,19 @@ import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
 import play.mvc.WebSocket;
-import services.GenreService;
-import services.MediaDetailsService;
-import services.ReviewsService;
-import services.TmdbService;
+import services.*;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+
 import java.util.stream.StreamSupport;
 
 /**
@@ -82,6 +89,7 @@ public class HomeController extends Controller {
     private final ActorRef supervisorActor;
 
     private final Materializer materializer;
+    private final MediaStreamService mediaStreamService;
 
     @Inject
     WebJarsUtil webJarsUtil;
@@ -107,7 +115,7 @@ public class HomeController extends Controller {
                           GenreService genreService, TmdbService tmdbService,
                           MediaDetailsService mediaDetailsService, ReviewsService reviewsService,
                           ActorSystem actorSystem, @Named("supervisorActor") ActorRef supervisorActor,
-                          Materializer materializer) {
+                          Materializer materializer,MediaStreamService mediaStreamService) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
@@ -117,6 +125,7 @@ public class HomeController extends Controller {
         this.mediaDetailsService = mediaDetailsService;
         this.reviewsService = reviewsService;
         this.materializer = materializer;
+        this.mediaStreamService = mediaStreamService;
 
         // load genres at startup to populate the genre maps
         try {
@@ -367,14 +376,14 @@ public class HomeController extends Controller {
         return CompletableFuture.supplyAsync(() -> {
 
             /*1.it runs the lambda in another thread and returns a future
-            * 2.this code calls the service layer:
-            * -> mediaDetailsService.getDetailsWithReadability(apiUrl, tmdbToken, type, id)
-            *
-            * */
+             * 2.this code calls the service layer:
+             * -> mediaDetailsService.getDetailsWithReadability(apiUrl, tmdbToken, type, id)
+             *
+             * */
             try {
                 return mediaDetailsService.getDetailsWithReadability(apiUrl, tmdbToken, type, id);
             } catch (Exception e) {
-                e.printStackTrace();
+                //log.error("Failed to fetch details for type={} id={}", type, id, e);
                 return null;
             }
         }, clExecutionContext.current()).thenApply(result -> {
@@ -386,6 +395,18 @@ public class HomeController extends Controller {
             if (result == null || result.details == null) {
                 return internalServerError("Failed to fetch details"); //http 500
             }
+            /*
+             * Build the node once, cache it so buildSeedItems can seed new WebSocket
+             * connections, then push it to the broadcast hub so all open sessions
+             * receive it via their MediaDetailsActor.
+             * */
+            ObjectNode node = MediaStreamService.buildNode(type, result.details, result.overview);
+            searchCache.put(type + ":" + id, node);
+            System.out.println("[BroadcastHub] pushing id=" + id
+                    + " type=" + type
+                    + " title=" + result.details.path("title").asText(
+                    result.details.path("name").asText("unknown")));            System.out.flush();
+            mediaStreamService.push(node);
 
             return ok(views.html.details.render(
                     type,
@@ -398,6 +419,133 @@ public class HomeController extends Controller {
             ));
         });
     }
+
+    /**
+     * websocket endpoint for live movie detail updates
+     * connect:
+     * 1. seeds the client with the 10 most recent movie items from the server-side searchCache(same data the http searh
+     * already cached)
+     * 2. Then streams every subsequent movie detail fetched by any user, filitered and deduplicated by mediadetailactor
+     *
+     *
+     * @return A websocket that pushes objectNode Json to the browser
+     * @author Zenghui WU
+     */
+    public WebSocket movieWs(){
+        return WebSocket.Json.accept(req-> buildMediaFlow("movie"));
+    }
+    /**
+     * websocket endpoint for live tv detail updates
+     * connect:
+     * 1. seeds the client with the 10 most recent movie items from the server-side searchCache
+     * (same data the http search already cached)
+     * 2. Then streams every subsequent movie detail fetched by any user, filitered
+     * and deduplicated by mediadetailactor
+     *
+     *
+     * @return A websocket that pushes objectNode Json to the browser
+     * @author Zenghui WU
+     */
+    public WebSocket tvWs(){
+        return WebSocket.Json.accept(req-> buildMediaFlow("tv"));
+    }
+
+    /**
+     * Core WebSocket flow builder shared by movieWs and tvWs.
+     *
+     * Wire-up sequence:
+     *  1. ActorSource   — materialises a Classic ActorRef (wsOut) and a
+     *                     Source<JsonNode, NotUsed> (wsSource) that emits
+     *                     everything told to wsOut.
+     *  2. SupervisorActor ask — creates a MediaDetailsActor child that holds
+     *                     wsOut; supervisor owns the child lifecycle.
+     *  3. StartSession  — seeds the actor with cached items for the initial
+     *                     filter and records their IDs to prevent duplicates.
+     *  4. BroadcastHub  — every mediaStreamService.push() arrives as NewItem;
+     *                     actor filters by type + query and deduplicates.
+     *  5. inSink        — receives browser → server messages. Handles filter
+     *                     changes: { "type": "tv"|"movie", "query": "..." }
+     *
+     * @param mediaType "movie" or "tv"
+     *    the originating HTTP request (used to read searchCache seed)
+     * @return a Flow<JsonNode, JsonNode, ?> for WebSocket.Json.accept
+     * @author Zenghui WU
+     */
+    private Flow<JsonNode, JsonNode, ?> buildMediaFlow(String mediaType) {
+
+        // ── 1. Classic ActorSource ────────────────────────────────────────────
+        // preMaterialize returns Pair<ActorRef, Source<JsonNode, NotUsed>>.
+        // Using the concrete NotUsed type parameter avoids the compiler error
+        // caused by assigning Source<JsonNode,NotUsed> to Source<JsonNode,?>.
+        Pair<ActorRef, Source<JsonNode, NotUsed>> sourcePair =
+                Source.<JsonNode>actorRef(
+                        msg -> java.util.Optional.empty(),
+                        msg -> java.util.Optional.empty(),
+                        128,
+                        OverflowStrategy.dropHead()
+                ).preMaterialize(materializer);
+
+        ActorRef                  wsOut    = sourcePair.first();
+        Source<JsonNode, NotUsed> wsSource = sourcePair.second();
+
+        // ── 2. Ask SupervisorActor to create a MediaDetailsActor child ────────
+        // The supervisor creates the child with props(wsOut, mediaType) and
+        // replies with its ActorRef. Using ask+join so the ref is available
+        // before we wire up the broadcast subscription below.
+        ActorRef detailsActor = Patterns
+                .ask(
+                        supervisorActor,
+                        new SupervisorActor.CreateMediaDetailsActor(wsOut, mediaType),
+                        Duration.ofSeconds(3)
+                )
+                .thenApply(ActorRef.class::cast)
+                .toCompletableFuture()
+                .join();
+
+        // ── 3. Seed the actor with initial cached items ───────────────────────
+        // StartSession sets the filter, clears seenIds, and pushes the seed
+        // batch so the browser sees data immediately on connect.
+        List<ObjectNode> initialSeed = buildSeedItems(mediaType, "");
+        detailsActor.tell(
+                new MediaDetailsActor.StartSession(mediaType, "", initialSeed),
+                ActorRef.noSender()
+        );
+
+        // ── 4. Subscribe to the broadcast hub ────────────────────────────────
+        // Every item pushed via mediaStreamService.push() arrives here as a
+        // NewItem; the actor filters by type+query and deduplicates.
+        mediaStreamService.liveSource()
+                .runForeach(
+                        item -> detailsActor.tell(
+                                new MediaDetailsActor.NewItem(item), ActorRef.noSender()),
+                        materializer
+                )
+                .whenComplete((done, ex) ->
+                        detailsActor.tell(MediaDetailsActor.STOP, ActorRef.noSender()));
+
+        // ── 5. Inbound sink — messages FROM the browser ────────────────────────
+        // Expected shape: { "type": "movie"|"tv", "query": "..." }
+        // Both fields are optional; omitted fields fall back to defaults.
+        Sink<JsonNode, ?> inSink = Sink.foreach(msg -> {
+            String newType = msg.hasNonNull("type")  ? msg.get("type").asText()  : mediaType;
+            String query   = msg.hasNonNull("query") ? msg.get("query").asText() : "";
+            List<ObjectNode> seedItems = buildSeedItems(newType, query);
+            detailsActor.tell(
+                    new MediaDetailsActor.ChangeSearch(newType, query, seedItems),
+                    ActorRef.noSender()
+            );
+        });
+
+        // ── 6. Combine into a single Flow ──────────────────────────────────────
+        // wsSource receives seed pushes via StartSession/ChangeSearch (the actor
+        // calls out.tell() → wsOut → wsSource). No separate seedSource needed.
+        return Flow.fromSinkAndSource(inSink, wsSource);
+    }
+
+    // ── Cache helpers -> share with Tasmia Naomi
+    //share buildSeedItems()'
+    //share mediatype();
+    //share matchesQuery();
 
     /**
      * An action that renders the reviews page with sentiment analysis for a given media item.
@@ -434,6 +582,69 @@ public class HomeController extends Controller {
                     webJarsUtil
             ));
         });
+    }
+
+    private List<ObjectNode> buildSeedItems(String mediaType, String query) {
+        List<ObjectNode> results = new ArrayList<>();
+
+        for (JsonNode node : searchCache.values()) {
+            if (node == null) {
+                continue;
+            }
+
+            JsonNode resultArray = node.path("results");
+            if (!resultArray.isArray()) {
+                continue;
+            }
+
+            for (JsonNode item : resultArray) {
+                if (!item.isObject()) {
+                    continue;
+                }
+
+                if (!matchesMediaType(item, mediaType)) {
+                    continue;
+                }
+
+                if (!matchesQuery(item, query)) {
+                    continue;
+                }
+
+                results.add((ObjectNode) item);
+            }
+        }
+
+        Collections.reverse(results);
+        return results;
+    }
+
+    private boolean matchesMediaType(JsonNode item, String mediaType) {
+        if (mediaType == null || mediaType.isBlank() || "all".equalsIgnoreCase(mediaType)) {
+            return true;
+        }
+
+        String type = item.path("type").asText("");
+
+        if (!type.isBlank()) {
+            return mediaType.equalsIgnoreCase(type);
+        }
+
+        String link = item.path("link").asText("");
+        return link.startsWith("/" + mediaType + "/");
+    }
+
+    private boolean matchesQuery(JsonNode item, String query) {
+        if (query == null || query.isBlank()) {
+            return true;
+        }
+
+        String q = query.toLowerCase();
+
+        String title = item.path("title").asText("").toLowerCase();
+        String name = item.path("name").asText("").toLowerCase();
+        String overview = item.path("overview").asText("").toLowerCase();
+
+        return title.contains(q) || name.contains(q) || overview.contains(q);
     }
 
     /**

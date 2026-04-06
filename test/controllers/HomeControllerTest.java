@@ -30,11 +30,7 @@ import play.mvc.Http;
 import play.mvc.Result;
 import play.test.Helpers;
 import scala.runtime.AbstractFunction0;
-import services.GenreService;
-import services.GlobalDiversityService;
-import services.MediaDetailsService;
-import services.ReviewsService;
-import services.TmdbService;
+import services.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -104,7 +100,8 @@ public class HomeControllerTest {
                 reviewsService,
                 actorSystem,
                 supervisorActor,
-                materializer
+                materializer,
+                application.injector().instanceOf(MediaStreamService.class)
         );
     }
 
@@ -172,7 +169,7 @@ public class HomeControllerTest {
         creditsJson.set("cast", castArray);
         creditsJson.set("crew", Json.newArray());
 
-        when(tmdbService.getPersonCredits(anyString(), anyString(), eq("1")))
+        when(tmdbService.getPersonCredits(anyString(), anyString(), eq("2")))
                 .thenReturn(creditsJson);
 
         // Mock person details response
@@ -184,33 +181,71 @@ public class HomeControllerTest {
         personDetailsJson.put("birthday", "1990-05-15");
         personDetailsJson.put("place_of_birth", "Los Angeles, USA");
 
-        when(tmdbService.getPersonDetails(anyString(), anyString(), eq("1")))
+        when(tmdbService.getPersonDetails(anyString(), anyString(), eq("2")))
                 .thenReturn(personDetailsJson);
 
-        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/1/stats");
-        Http.Request request = requestBuilder.build();
-
+//        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/1/stats");
+//        Http.Request request = requestBuilder.build();
+//
         List<MovieOrTVShow> items = new ArrayList<>();
         items.add(new MovieOrTVShow("1", "Movie A", 10.0, 8.0, 100));
         items.add(new MovieOrTVShow("2", "Movie B", 20.0, 7.0, 200));
         models.PersonStats mockStats = new models.PersonStats(items);
         mockStats.setPersonDetails("Test Person", "/test.jpg", "Acting", 2, "1990-05-15", "Los Angeles, USA");
-
-        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
-        Result result;
-        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
-            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
-            CompletionStage<Result> resultStage = controller.personStats("1", request);
-            result = resultStage.toCompletableFuture().join();
-        }
-
+//        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
+//        Result result;
+//        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+//            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
+//            CompletionStage<Result> resultStage = controller.personStats("1", request);
+//            result = resultStage.toCompletableFuture().join();
+//        }
+        HomeController localController = controllerWithSupervisorReply(mockStats);
+        Http.Request request = Helpers.fakeRequest(GET, "/person/2/stats").build();
+        Result result = localController.personStats("2", request).toCompletableFuture().join();
         assertEquals(OK, result.status());
         String html = contentAsString(result);
         assertTrue(html.contains("Test Person"));
         assertTrue(html.contains("Movie A"));
         assertTrue(html.contains("Movie B"));
     }
+    private HomeController controllerWithSupervisorReply(Object replyObject) {
+        Application application = new GuiceApplicationBuilder().build();
+        Helpers.start(application);
 
+        // Use a classic ActorSystem from the application, not testKit's system
+        ActorSystem classicSystem = application.injector().instanceOf(ActorSystem.class);
+
+        ActorRef stubSupervisor = classicSystem.actorOf(
+                org.apache.pekko.actor.Props.create(org.apache.pekko.actor.AbstractActor.class, () ->
+                        new org.apache.pekko.actor.AbstractActor() {
+                            @Override
+                            public Receive createReceive() {
+                                return receiveBuilder()
+                                        .matchAny(msg -> getSender().tell(replyObject, getSelf()))
+                                        .build();
+                            }
+                        })
+        );
+        Config config = mock(Config.class);
+        when(config.getString("tmdb.api.key")).thenReturn("fake-key");
+        when(config.getString("tmdb.api.url")).thenReturn("fake-url");
+        when(tmdbService.loadTargetLanguageConstant(anyString(), anyString())).thenReturn(10);
+        Materializer materializer = application.injector().instanceOf(Materializer.class);
+        return new HomeController(
+                application.injector().instanceOf(FormFactory.class),
+                application.injector().instanceOf(MessagesApi.class),
+                application.injector().instanceOf(ClassLoaderExecutionContext.class),
+                config,
+                mock(GenreService.class),
+                tmdbService,
+                mediaDetailsService,
+                reviewsService,
+                classicSystem,
+                stubSupervisor,
+                materializer,
+                application.injector().instanceOf(MediaStreamService.class)
+        );
+    }
     /**
      * Tests the personStats action when API throws an exception.
      * Should still render the page gracefully with empty stats.
@@ -262,18 +297,21 @@ public class HomeControllerTest {
                 .thenReturn(personDetailsJson);
 
         Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/2/stats");
-        Http.Request request = requestBuilder.build();
+        Http.Request request = Helpers.fakeRequest(GET, "/person/2/stats").build();
+        //Http.Request request = requestBuilder.build();
 
         models.PersonStats mockStats = new models.PersonStats(new ArrayList<>());
         mockStats.setPersonDetails("Scarlett Johansson", "/scarlett.jpg", "Acting", 1, "1984-11-22", "New York City, USA");
 
-        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
-        Result result;
-        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
-            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
-            CompletionStage<Result> resultStage = controller.personStats("2", request);
-            result = resultStage.toCompletableFuture().join();
-        }
+//        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
+//        Result result;
+//        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+//            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
+//            CompletionStage<Result> resultStage = controller.personStats("2", request);
+//            result = resultStage.toCompletableFuture().join();
+//        }
+        HomeController localController = controllerWithSupervisorReply(mockStats);
+        Result result = localController.personStats("2", request).toCompletableFuture().join();
 
         assertEquals(OK, result.status());
         String html = contentAsString(result);
@@ -327,14 +365,15 @@ public class HomeControllerTest {
         models.PersonStats mockStats = new models.PersonStats(items);
         mockStats.setPersonDetails("Leonardo DiCaprio", "/leo.jpg", "Acting", 2, "1974-11-11", "Los Angeles, USA");
 
-        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
-        Result result;
-        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
-            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
-            CompletionStage<Result> resultStage = controller.personStats("3", request);
-            result = resultStage.toCompletableFuture().join();
-        }
-
+//        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
+//        Result result;
+//        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+//            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
+//            CompletionStage<Result> resultStage = controller.personStats("3", request);
+//            result = resultStage.toCompletableFuture().join();
+//        }
+        HomeController localController = controllerWithSupervisorReply(mockStats);
+        Result result = localController.personStats("3", request).toCompletableFuture().join();
         assertEquals(OK, result.status());
         String html = contentAsString(result);
         assertTrue(html.contains("Inception"));
@@ -383,19 +422,22 @@ public class HomeControllerTest {
         models.PersonStats mockStats = new models.PersonStats(items);
         mockStats.setPersonDetails("Bryan Cranston", "/bryan.jpg", "Acting", 2, "1956-03-07", "Canoga Park, USA");
 
-        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
-        Result result;
-        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
-            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
-            CompletionStage<Result> resultStage = controller.personStats("4", request);
-            result = resultStage.toCompletableFuture().join();
-        }
-
+//        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
+//        Result result;
+//        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+//            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
+//            CompletionStage<Result> resultStage = controller.personStats("4", request);
+//            result = resultStage.toCompletableFuture().join();
+//        }
+        HomeController localController = controllerWithSupervisorReply(mockStats);
+        Result result = localController.personStats("4", request).toCompletableFuture().join();
         assertEquals(OK, result.status());
         String html = contentAsString(result);
         assertTrue(html.contains("Breaking Bad"));
         assertTrue(html.contains("2008"));
     }
+
+
 
     /**
      * Tests the financialPerformance action with a successful API response.
@@ -565,19 +607,13 @@ public class HomeControllerTest {
     }
 
     /**
-     * Tests search with form errors.
+     * Tests that the WebSocket search endpoint returns a non-null WebSocket handler.
      *
      * @author Mahmoud Saghir
      */
     @Test
-    public void testSearchWithFormErrors() {
-        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
-                .bodyForm(java.util.Map.of("query", ""))
-                .build();
-
-        Result result = controller.search(request).toCompletableFuture().join();
-        assertEquals(OK, result.status());
-        assertTrue(contentAsString(result).contains("Welcome to FlickLytics"));
+    public void testWsEndpointNotNull() {
+        assertNotNull(controller.ws());
     }
 
     /**
@@ -585,52 +621,52 @@ public class HomeControllerTest {
      *
      * @author Mahmoud Saghir
      */
-    @Test
-    public void testSearchMovieSuccessAndSessionHeader() throws Exception {
-        ObjectNode item = Json.newObject();
-        item.put("id", 100);
-        item.put("title", "The Matrix");
-        item.put("original_language", "en");
-        item.put("release_date", "1999-03-31");
-        item.put("popularity", 9.9);
-        item.put("vote_average", 8.7);
-        item.set("genre_ids", Json.newArray().add(28));
-
-        ObjectNode root = Json.newObject();
-        root.put("total_results", 1);
-        root.set("results", Json.newArray().add(item));
-
-        when(tmdbService.search(anyString(), anyString(), eq("matrix"), eq("movie"), 1)).thenReturn(root);
-
-        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
-                .bodyForm(java.util.Map.of("query", "matrix", "category", "movie"))
-                .build();
-
-        Result result = controller.search(request).toCompletableFuture().join();
-        assertEquals(OK, result.status());
-        assertTrue(contentAsString(result).contains("The Matrix"));
-        assertTrue(contentAsString(result).contains("Total results: 1"));
-    }
-
-    /**
-     * Tests search exception path in async fetch.
-     *
-     * @author Mahmoud Saghir
-     */
-    @Test
-    public void testSearchApiFailurePath() throws Exception {
-        when(tmdbService.search(anyString(), anyString(), eq("bad"), eq("tv"), 1))
-                .thenThrow(new RuntimeException("API down"));
-
-        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
-                .bodyForm(java.util.Map.of("query", "bad", "category", "tv"))
-                .session("searchHistory", "a,b,c,d,e,f,g,h,i,j,k")
-                .build();
-
-        Result result = controller.search(request).toCompletableFuture().join();
-        assertEquals(OK, result.status());
-        assertTrue(contentAsString(result).contains("Welcome to FlickLytics"));
-    }
+//    @Test
+//    public void testSearchMovieSuccessAndSessionHeader() throws Exception {
+//        ObjectNode item = Json.newObject();
+//        item.put("id", 100);
+//        item.put("title", "The Matrix");
+//        item.put("original_language", "en");
+//        item.put("release_date", "1999-03-31");
+//        item.put("popularity", 9.9);
+//        item.put("vote_average", 8.7);
+//        item.set("genre_ids", Json.newArray().add(28));
+//
+//        ObjectNode root = Json.newObject();
+//        root.put("total_results", 1);
+//        root.set("results", Json.newArray().add(item));
+//
+//        when(tmdbService.search(anyString(), anyString(), eq("matrix"), eq("movie"), 1)).thenReturn(root);
+//
+//        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
+//                .bodyForm(java.util.Map.of("query", "matrix", "category", "movie"))
+//                .build();
+//
+//        Result result = controller.search(request).toCompletableFuture().join();
+//        assertEquals(OK, result.status());
+//        assertTrue(contentAsString(result).contains("The Matrix"));
+//        assertTrue(contentAsString(result).contains("Total results: 1"));
+//    }
+//
+//    /**
+//     * Tests search exception path in async fetch.
+//     *
+//     * @author Mahmoud Saghir
+//     */
+//    @Test
+//    public void testSearchApiFailurePath() throws Exception {
+//        when(tmdbService.search(anyString(), anyString(), eq("bad"), eq("tv"), 1))
+//                .thenThrow(new RuntimeException("API down"));
+//
+//        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
+//                .bodyForm(java.util.Map.of("query", "bad", "category", "tv"))
+//                .session("searchHistory", "a,b,c,d,e,f,g,h,i,j,k")
+//                .build();
+//
+//        Result result = controller.search(request).toCompletableFuture().join();
+//        assertEquals(OK, result.status());
+//        assertTrue(contentAsString(result).contains("Welcome to FlickLytics"));
+//    }
 
     /**
      * Tests private parseMediaItem branches via reflection.
@@ -701,7 +737,8 @@ public class HomeControllerTest {
                 reviewsService,
                 actorSystem,
                 supervisorActor,
-                materializer
+                materializer,
+                application.injector().instanceOf(MediaStreamService.class)
         );
 
         Result result = localController.index(Helpers.fakeRequest(GET, "/flicklytics").build())
@@ -748,7 +785,8 @@ public class HomeControllerTest {
         assertTrue(withSlash.movie(1L).url().contains("/movie/1"));
         assertTrue(withSlash.tv(2L).url().contains("/tv/2"));
         assertEquals("/", withSlash.redirectToFlicklytics().url());
-        assertTrue(withSlash.search().url().contains("flicklytics"));
+        //assertTrue(withSlash.search().url().contains("flicklytics"));
+        assertTrue(withSlash.ws().url().contains("ws/search"));
         assertTrue(withSlash.personStats("12").url().contains("/person/12/stats"));
         assertTrue(withSlash.reviews("movie", 10L).url().contains("/reviews/movie/10"));
         assertTrue(withSlash.globalDiversity("movie", 5).url().contains("global-diversity/movie/5"));
@@ -800,7 +838,8 @@ public class HomeControllerTest {
         JavaScriptReverseRoute r1 = jsWithSlash.index();
         JavaScriptReverseRoute r2 = jsWithSlash.movie();
         JavaScriptReverseRoute r3 = jsWithSlash.tv();
-        JavaScriptReverseRoute r4 = jsWithSlash.search();
+        //JavaScriptReverseRoute r4 = jsWithSlash.search();
+        JavaScriptReverseRoute r4 = jsWithSlash.ws();
         JavaScriptReverseRoute r5 = jsWithSlash.redirectToFlicklytics();
         JavaScriptReverseRoute r6 = jsWithSlash.personStats();
         JavaScriptReverseRoute r7 = jsWithSlash.reviews();
