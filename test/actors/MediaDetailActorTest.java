@@ -560,4 +560,90 @@ public class MediaDetailActorTest {
         ObjectNode n = makeItem("1", "movie", "", "", "no match here");
         assertFalse(f.accept(n));
     }
+    /**
+     * Seed item with empty id is skipped in pushSeed.
+     */
+    @Test
+    public void testPushSeedSkipsEmptyIdItems() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "movie"));
+
+            ObjectNode emptyIdItem = Json.newObject();
+            emptyIdItem.put("id",    "");
+            emptyIdItem.put("type",  "movie");
+            emptyIdItem.put("title", "No ID");
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "movie", "", Arrays.asList(emptyIdItem)), ActorRef.noSender());
+
+            expectNoMessage(duration("300 millis"));
+        }};
+    }
+
+    /**
+     * matchesType returns true when mediaType is blank.
+     */
+    @Test
+    public void testBlankMediaTypeAcceptsAllItems() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), ""));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "", "", Collections.emptyList()), ActorRef.noSender());
+
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("1", "movie", "Any Movie")), ActorRef.noSender());
+
+            ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("1", received.path("id").asText());
+        }};
+    }
+
+    /**
+     * matchesType falls back to link check when type field is empty and link does not match.
+     */
+    @Test
+    public void testNonMatchingLinkIsRejected() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "movie"));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "movie", "", Collections.emptyList()), ActorRef.noSender());
+
+            ObjectNode item = Json.newObject();
+            item.put("id",   "888");
+            item.put("link", "/tv/888");
+            // no "type" field — falls back to link check, /tv/888 != /movie/
+            actor.tell(new MediaDetailsActor.NewItem(item), ActorRef.noSender());
+
+            expectNoMessage(duration("300 millis"));
+        }};
+    }
+
+    /**
+     * matchesQuery returns true when query is null (set via ChangeSearch).
+     */
+    @Test
+    public void testNullQueryAcceptsAllItems() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "movie"));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "movie", "", Collections.emptyList()), ActorRef.noSender());
+
+            // ChangeSearch with null query
+            actor.tell(new MediaDetailsActor.ChangeSearch(
+                    "movie", null, Collections.emptyList()), ActorRef.noSender());
+
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("1", "movie", "Anything")), ActorRef.noSender());
+
+            ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("1", received.path("id").asText());
+        }};
+    }
 }
