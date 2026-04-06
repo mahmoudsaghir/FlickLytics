@@ -13,3 +13,11 @@ http://localhost:9000/flicklytics/movie/550
   [MediaDetailsActor] received id=550 type=movie filter=movie matches=true
   [MediaDetailsActor] forwarded id=550 to WebSocket
   [MediaDetailsActor] received id=550 type=movie filter=tv matches=false
+  
+- how to config 21 jdk for jacoco
+
+$env:JAVA_HOME="C:\Program Files\Java\jdk-21.0.10"
+$env:Path="$env:JAVA_HOME\bin;" + $env:Path
+java -version
+javac -version
+sbt clean test jacoco
