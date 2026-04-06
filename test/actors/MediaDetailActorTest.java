@@ -645,5 +645,6 @@ public class MediaDetailActorTest {
             ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
             assertEquals("1", received.path("id").asText());
         }};
+
     }
 }
