@@ -5,9 +5,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.Utils;
 import play.libs.Json;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * Service responsible for all TMDb API communications.
  * This service centralizes external HTTP calls and prevents business logic
@@ -183,6 +180,8 @@ public class TmdbService {
     /**
      * Fetches search results immediately (used by WebSocket reactive updates).
      * Returns the list of results array from TMDb response.
+     *
+     * @author Mahmoud Saghir
      */
     public ObjectNode searchNow(String apiUrl, String token, String query, String category, int currentPage) {
         ObjectNode resultNode = Json.newObject();

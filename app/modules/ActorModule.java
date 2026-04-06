@@ -10,7 +10,6 @@ import services.TmdbService;
 import com.typesafe.config.Config;
 
 import javax.inject.Inject;
-import javax.inject.Named;
 import javax.inject.Provider;
 
 /**
