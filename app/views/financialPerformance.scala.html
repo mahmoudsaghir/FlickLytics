@@ -1,6 +1,6 @@
 @import java.text.NumberFormat
 @import java.util.Locale
-@(fp: models.FinancialPerformance)(implicit request: Http.Request, messages: play.i18n.Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
+@(fp: models.FinancialPerformance)(implicit request: play.mvc.Http.Request, messages: play.i18n.Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
 
 @main("Financial Performance") {
 
@@ -37,14 +37,14 @@
             <tbody>
             <tr>
                 <td>
-                    @if(fp.getProfit() < 0) {
-                    <span style="color:red;">-$@fp.formatMillions(Math.abs(fp.getProfit()))</span>
+                    @if(profit < 0) {
+                    <span style="color:red;">-$@fp.formatMillions(Math.abs(profit))</span>
                     } else {
-                    $@fp.formatMillions(fp.getProfit())
+                    $@fp.formatMillions(profit)
                     }
                 </td>
-                <td>$@fp.formatMillions(fp.getRevenue())</td>
-                <td>$@fp.formatMillions(fp.getBudget())</td>
+                <td>$@fp.formatMillions(revenue)</td>
+                <td>$@fp.formatMillions(budget)</td>
             </tr>
             </tbody>
         </table>
@@ -62,14 +62,14 @@
             <tbody>
             <tr>
                 <td>
-                    @if(fp.getRoiPercent() < 0) {
-                    <span style="color:red;">@fp.formatPercent(fp.getRoiPercent())%</span>
+                    @if(roiPercent < 0) {
+                    <span style="color:red;">@fp.formatPercent(roiPercent)%</span>
                     } else {
-                    @fp.formatPercent(fp.getRoiPercent())%
+                    @fp.formatPercent(roiPercent)%
                     }
                 </td>
-                <td>$@fp.formatMillions(fp.getRevenue())</td>
-                <td>$@fp.formatMillions(fp.getBudget())</td>
+                <td>$@fp.formatMillions(revenue)</td>
+                <td>$@fp.formatMillions(budget)</td>
             </tr>
             </tbody>
         </table>
@@ -80,9 +80,9 @@
 </div>
 
 }
-} <!-- end percentFormatter / intFormatter -->
 }
-} <!-- end roiPercent / profit / revenue / budget -->
+}
+}
 }
 }
 }
