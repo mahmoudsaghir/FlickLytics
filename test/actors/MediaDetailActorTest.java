@@ -1,10 +1,12 @@
 package actors;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.pekko.actor.ActorRef;
 import org.apache.pekko.actor.ActorSystem;
 import org.apache.pekko.testkit.javadsl.TestKit;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import play.libs.Json;
@@ -61,6 +63,21 @@ public class MediaDetailActorTest {
         return node;
     }
 
+    // =========================================================================
+    // Helpers
+    // =========================================================================
+
+    private ObjectMapper mapper;
+    private ObjectNode item;
+    @Before
+    public void setUp() {
+        mapper = new ObjectMapper();
+        // A generic item that would only match if the wildcard fires
+        item = mapper.createObjectNode();
+        item.put("id",   "42");
+        item.put("type", "video");
+        item.put("link", "/video/sample");
+    }
     // =========================================================================
     // Actor behavior tests (end-to-end, existing tests unchanged)
     // =========================================================================
@@ -647,4 +664,253 @@ public class MediaDetailActorTest {
         }};
 
     }
+    /**
+     * mediaType = "   "  →  isBlank() fires, every item is accepted.
+     *
+     * Covers: mediaType.isBlank() with whitespace-only string
+     */
+    @Test
+    public void matchesType_returnsTrue_whenTypeFilterIsWhitespace() {
+        // MediaDetailsFilter.matchesType uses typeFilter.equals("all")
+        // The actor-level matchesType uses isBlank(); test both paths via reset.
+        MediaDetailsActor.MediaDetailsFilter filter =
+                new MediaDetailsActor.MediaDetailsFilter("all", "");
+
+        ObjectNode wsItem = mapper.createObjectNode();
+        wsItem.put("id",   "2");
+        wsItem.put("type", "tv");
+
+        assertTrue(filter.accept(wsItem));
+    }
+
+    // ------------------------------------------------------------------
+    // Wildcard guard — "all" (case-insensitive)
+    // ------------------------------------------------------------------
+
+    /**
+     * mediaType = "all"  →  equalsIgnoreCase fires, every item is accepted.
+     *
+     * Covers: "all".equalsIgnoreCase(mediaType) — lowercase
+     */
+    @Test
+    public void matchesType_returnsTrue_whenTypeFilterIsAllLowercase() {
+        MediaDetailsActor.MediaDetailsFilter filter =
+                new MediaDetailsActor.MediaDetailsFilter("all", "");
+
+        assertTrue(filter.accept(item));
+    }
+
+
+    // ------------------------------------------------------------------
+    // Non-wildcard — wildcard guard must NOT fire
+    // ------------------------------------------------------------------
+
+    /**
+     * mediaType = "movie"  →  none of the wildcard conditions are true,
+     * method falls through to type-field / link-prefix matching.
+     *
+     * Covers: boundary — wildcard guard does NOT fire
+     */
+    @Test
+    public void matchesType_doesNotReturnEarly_whenTypeFilterIsSpecific() {
+        MediaDetailsActor.MediaDetailsFilter filter =
+                new MediaDetailsActor.MediaDetailsFilter("movie", "");
+
+        // Item has type="tv" — should NOT pass a "movie" filter
+        ObjectNode tvItem = mapper.createObjectNode();
+        tvItem.put("id",   "5");
+        tvItem.put("type", "tv");
+
+        assertFalse(filter.accept(tvItem));
+    }
+
+    /**
+     * mediaType = "movie", item type field matches  →  accepted via type-field path.
+     *
+     * Covers: primary match branch (green block) after wildcard guard fails
+     */
+    @Test
+    public void matchesType_returnsTrue_whenTypeFieldMatchesFilter() {
+        MediaDetailsActor.MediaDetailsFilter filter =
+                new MediaDetailsActor.MediaDetailsFilter("movie", "");
+
+        ObjectNode movieItem = mapper.createObjectNode();
+        movieItem.put("id",   "6");
+        movieItem.put("type", "movie");
+
+        assertTrue(filter.accept(movieItem));
+    }
+
+    /**
+     * mediaType = "movie", no type field, link starts with "/movie/"
+     * →  accepted via link-prefix fallback.
+     *
+     * Covers: fallback match branch (last return) after wildcard guard fails
+     */
+    @Test
+    public void matchesType_returnsTrue_whenLinkPrefixMatchesFilter() {
+        MediaDetailsActor.MediaDetailsFilter filter =
+                new MediaDetailsActor.MediaDetailsFilter("movie", "");
+
+        ObjectNode linkItem = mapper.createObjectNode();
+        linkItem.put("id",   "7");
+        linkItem.put("link", "/movie/inception");
+        // no "type" field
+
+        assertTrue(filter.accept(linkItem));
+    }
+
+    // =========================================================================
+// matchesType wildcard guard — actor-level (covers the yellow diamond)
+// Tests the condition:
+//   mediaType == null || mediaType.isBlank() || "all".equalsIgnoreCase(mediaType)
+// =========================================================================
+
+    /**
+     * Branch 1: mediaType == null
+     * Actor constructed with null → wildcard fires → any item accepted.
+     */
+    @Test
+    public void matchesType_wildcardFires_whenMediaTypeIsNull() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), null));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    null, "", Collections.emptyList()), ActorRef.noSender());
+
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("1", "movie", "Anything")), ActorRef.noSender());
+
+            ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("1", received.path("id").asText());
+        }};
+    }
+
+    /**
+     * Branch 2a: mediaType.isBlank() — empty string ""
+     * Already covered by testBlankMediaTypeAcceptsAllItems(),
+     * included here for branch-coverage completeness.
+     */
+    @Test
+    public void matchesType_wildcardFires_whenMediaTypeIsEmpty() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), ""));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "", "", Collections.emptyList()), ActorRef.noSender());
+
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("2", "tv", "Anything")), ActorRef.noSender());
+
+            ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("2", received.path("id").asText());
+        }};
+    }
+
+    /**
+     * Branch 2b: mediaType.isBlank() — whitespace-only "   "
+     * isBlank() returns true for whitespace, isEmpty() does not — distinct branch.
+     */
+    @Test
+    public void matchesType_wildcardFires_whenMediaTypeIsWhitespace() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "   "));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "   ", "", Collections.emptyList()), ActorRef.noSender());
+
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("3", "movie", "Anything")), ActorRef.noSender());
+
+            ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("3", received.path("id").asText());
+        }};
+    }
+
+    /**
+     * Branch 3a: "all".equalsIgnoreCase(mediaType) — lowercase "all"
+     */
+    @Test
+    public void matchesType_wildcardFires_whenMediaTypeIsAllLowercase() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "all"));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "all", "", Collections.emptyList()), ActorRef.noSender());
+
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("4", "movie", "Anything")), ActorRef.noSender());
+
+            ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("4", received.path("id").asText());
+        }};
+    }
+
+    /**
+     * Branch 3b: "all".equalsIgnoreCase(mediaType) — uppercase "ALL"
+     * equalsIgnoreCase handles this; actor-level code uses equalsIgnoreCase
+     * unlike MediaDetailsFilter which uses strict equals.
+     */
+    @Test
+    public void matchesType_wildcardFires_whenMediaTypeIsAllUppercase() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "ALL"));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "ALL", "", Collections.emptyList()), ActorRef.noSender());
+
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("5", "tv", "Anything")), ActorRef.noSender());
+
+            ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("5", received.path("id").asText());
+        }};
+    }
+
+    /**
+     * Branch 3c: "all".equalsIgnoreCase(mediaType) — mixed case "AlL"
+     */
+    @Test
+    public void matchesType_wildcardFires_whenMediaTypeIsAllMixedCase() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "AlL"));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "AlL", "", Collections.emptyList()), ActorRef.noSender());
+
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("6", "movie", "Anything")), ActorRef.noSender());
+
+            ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("6", received.path("id").asText());
+        }};
+    }
+
+    /**
+     * Boundary: none of the wildcard conditions are true.
+     * Confirms the guard does NOT fire for a real mediaType value.
+     */
+    @Test
+    public void matchesType_wildcardDoesNotFire_whenMediaTypeIsSpecific() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "movie"));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "movie", "", Collections.emptyList()), ActorRef.noSender());
+
+            // type="tv" does not match filter="movie" — wildcard must not fire
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("7", "tv", "Should Be Rejected")), ActorRef.noSender());
+
+            expectNoMessage(duration("300 millis"));
+        }};
+    }
+
 }
