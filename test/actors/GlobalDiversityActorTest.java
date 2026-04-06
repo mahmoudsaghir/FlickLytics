@@ -2,7 +2,6 @@ package actors;
 
 import org.apache.pekko.actor.ActorRef;
 import org.apache.pekko.actor.ActorSystem;
-import org.apache.pekko.actor.Props;
 import com.fasterxml.jackson.databind.JsonNode;
 import models.GlobalDiversityResult;
 import org.apache.pekko.testkit.javadsl.TestKit;
