@@ -877,5 +877,111 @@ public class HomeControllerTest {
         assertNotNull(jsAssetsWithSlash.versioned());
         assertNotNull(jsAssetsWithoutSlash.versioned());
     }
+    /**
+     * Covers controllers_HomeController_movieWs10_route and invoker (LINE:29).
+     * Tests both prefix branches (with and without slash) to initialize the
+     * lazy val invoker which is the red block in the generated router.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testReverseHomeControllerMovieWsRoute() {
+        ReverseHomeController withSlash = new ReverseHomeController(new AbstractFunction0<String>() {
+            @Override
+            public String apply() {
+                return "/";
+            }
+        });
+
+        ReverseHomeController withoutSlash = new ReverseHomeController(new AbstractFunction0<String>() {
+            @Override
+            public String apply() {
+                return "/api";
+            }
+        });
+
+        // Initializes controllers_HomeController_movieWs10_route lazy val
+        Call movieWsWithSlash    = withSlash.movieWs();
+        // Initializes the invoker lazy val (the red block) via defaultPrefix branch
+        Call movieWsWithoutSlash = withoutSlash.movieWs();
+
+        assertNotNull(movieWsWithSlash);
+        assertNotNull(movieWsWithoutSlash);
+        assertTrue(movieWsWithSlash.url().contains("ws/movie"));
+        assertTrue(movieWsWithoutSlash.url().contains("/api"));
+        assertTrue(movieWsWithoutSlash.url().contains("ws/movie"));
+    }
+
+    /**
+     * Covers controllers_HomeController_tvWs11_route and invoker (LINE:30).
+     * Tests both prefix branches (with and without slash) to initialize the
+     * lazy val invoker which is the red block in the generated router.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testReverseHomeControllerTvWsRoute() {
+        ReverseHomeController withSlash = new ReverseHomeController(new AbstractFunction0<String>() {
+            @Override
+            public String apply() {
+                return "/";
+            }
+        });
+
+        ReverseHomeController withoutSlash = new ReverseHomeController(new AbstractFunction0<String>() {
+            @Override
+            public String apply() {
+                return "/api";
+            }
+        });
+
+        // Initializes controllers_HomeController_tvWs11_route lazy val
+        Call tvWsWithSlash    = withSlash.tvWs();
+        // Initializes the invoker lazy val (the red block) via defaultPrefix branch
+        Call tvWsWithoutSlash = withoutSlash.tvWs();
+
+        assertNotNull(tvWsWithSlash);
+        assertNotNull(tvWsWithoutSlash);
+        assertTrue(tvWsWithSlash.url().contains("ws/tv"));
+        assertTrue(tvWsWithoutSlash.url().contains("/api"));
+        assertTrue(tvWsWithoutSlash.url().contains("ws/tv"));
+    }
+
+    /**
+     * Covers the JavaScript reverse route wrappers for movieWs and tvWs.
+     * Both withSlash and withoutSlash variants force the JS invoker
+     * lazy vals to initialize, clearing the remaining red blocks.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testJavaScriptReverseMovieWsAndTvWsCoverage() {
+        controllers.javascript.ReverseHomeController jsWithSlash =
+                new controllers.javascript.ReverseHomeController(new AbstractFunction0<String>() {
+                    @Override
+                    public String apply() {
+                        return "/";
+                    }
+                });
+
+        controllers.javascript.ReverseHomeController jsWithoutSlash =
+                new controllers.javascript.ReverseHomeController(new AbstractFunction0<String>() {
+                    @Override
+                    public String apply() {
+                        return "/api";
+                    }
+                });
+
+        JavaScriptReverseRoute movieWsSlash    = jsWithSlash.movieWs();
+        JavaScriptReverseRoute movieWsNoSlash  = jsWithoutSlash.movieWs();
+        JavaScriptReverseRoute tvWsSlash       = jsWithSlash.tvWs();
+        JavaScriptReverseRoute tvWsNoSlash     = jsWithoutSlash.tvWs();
+
+        assertNotNull(movieWsSlash);
+        assertNotNull(movieWsNoSlash);
+        assertNotNull(tvWsSlash);
+        assertNotNull(tvWsNoSlash);
+    }
+
 }
 

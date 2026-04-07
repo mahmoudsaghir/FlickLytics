@@ -647,4 +647,116 @@ public class MediaDetailActorTest {
         }};
 
     }
+
+    /**l
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void matchesType_wildcardFires_whenMediaTypeIsNull() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), null));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    null, "", Collections.emptyList()), ActorRef.noSender());
+
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("1", "movie", "Anything")), ActorRef.noSender());
+
+            // null → wildcard fires → item accepted regardless of type
+            ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("1", received.path("id").asText());
+        }};
+    }
+
+    /**
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void matchesType_wildcardFires_whenMediaTypeIsWhitespace() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "   "));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "   ", "", Collections.emptyList()), ActorRef.noSender());
+
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("2", "tv", "Anything")), ActorRef.noSender());
+
+            // "   ".isBlank()=true → wildcard fires → item accepted
+            ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("2", received.path("id").asText());
+        }};
+    }
+
+    /**
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void matchesType_wildcardFires_whenMediaTypeIsAllUppercase() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "ALL"));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "ALL", "", Collections.emptyList()), ActorRef.noSender());
+
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("3", "movie", "Anything")), ActorRef.noSender());
+
+            // equalsIgnoreCase("ALL")=true → wildcard fires → item accepted
+            ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("3", received.path("id").asText());
+        }};
+    }
+
+    /**
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void matchesType_wildcardFires_whenMediaTypeIsAllMixedCase() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "AlL"));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "AlL", "", Collections.emptyList()), ActorRef.noSender());
+
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("4", "tv", "Anything")), ActorRef.noSender());
+
+            // equalsIgnoreCase("AlL")=true → wildcard fires → item accepted
+            ObjectNode received = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("4", received.path("id").asText());
+        }};
+    }
+
+    /**
+     * Boundary: all three OR conditions are FALSE — wildcard must NOT fire.
+     * Required to record the complete false outcome of the entire condition.
+     * Covers: entire if-condition = false → falls through to type/link matching
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void matchesType_wildcardDoesNotFire_whenMediaTypeIsSpecific() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "movie"));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "movie", "", Collections.emptyList()), ActorRef.noSender());
+
+            // type="tv" ≠ "movie" → all three checks false → rejected
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("5", "tv", "Should Be Rejected")), ActorRef.noSender());
+
+            expectNoMessage(duration("300 millis"));
+        }};
+    }
 }
