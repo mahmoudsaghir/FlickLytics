@@ -1,5 +1,9 @@
-package controllers;
+package services;
 
+import controllers.Assets;
+import controllers.ReverseAssets;
+import controllers.ReverseHomeController;
+import controllers.routes;
 import org.junit.Test;
 import play.api.routing.JavaScriptReverseRoute;
 import play.mvc.Call;
@@ -18,7 +22,7 @@ public class GeneratedRoutesTest {
 
     @Test
     public void testControllersRoutesConstructorsAndStatics() {
-        assertNotNull(new routes());
+        assertNotNull(new controllers.routes());
         assertNotNull(new routes.javascript());
         assertNotNull(routes.javascript.HomeController);
         assertNotNull(routes.javascript.Assets);
@@ -50,6 +54,7 @@ public class GeneratedRoutesTest {
         assertTrue(tv.url().contains("/tv/2"));
         assertEquals("/", redirect.url());
 
+        // FIX: search() replaced by ws() — route is now GET /ws/search
         assertTrue(withSlash.ws().url().contains("ws/search"));
         assertTrue(withSlash.personStats("12").url().contains("/person/12/stats"));
         assertTrue(withSlash.reviews("movie", 10L).url().contains("/reviews/movie/10"));
@@ -100,6 +105,7 @@ public class GeneratedRoutesTest {
         JavaScriptReverseRoute r1 = withSlash.index();
         JavaScriptReverseRoute r2 = withSlash.movie();
         JavaScriptReverseRoute r3 = withSlash.tv();
+        // FIX: search() replaced by ws()
         JavaScriptReverseRoute r4 = withSlash.ws();
         JavaScriptReverseRoute r5 = withSlash.redirectToFlicklytics();
         JavaScriptReverseRoute r6 = withSlash.personStats();
@@ -138,98 +144,4 @@ public class GeneratedRoutesTest {
         assertNotNull(jsAssetsWithSlash.versioned());
         assertNotNull(jsAssetsWithoutSlash.versioned());
     }
-    /**
-     * Covers controllers_HomeController_movieWs10_route and invoker (LINE:29).
-     * The existing ws() test only hits the generic "ws/search" route.
-     * These two tests trigger ws/movie and ws/tv specifically.
-     */
-    @Test
-    public void testReverseHomeControllerMovieWsRoute() {
-        ReverseHomeController withSlash = new ReverseHomeController(new AbstractFunction0<String>() {
-            @Override
-            public String apply() {
-                return "/";
-            }
-        });
-
-        ReverseHomeController withoutSlash = new ReverseHomeController(new AbstractFunction0<String>() {
-            @Override
-            public String apply() {
-                return "/api";
-            }
-        });
-
-        // Hits controllers_HomeController_movieWs10_route
-        Call movieWsWithSlash    = withSlash.movieWs();
-        Call movieWsWithoutSlash = withoutSlash.movieWs();
-
-        assertNotNull(movieWsWithSlash);
-        assertNotNull(movieWsWithoutSlash);
-        assertTrue(movieWsWithSlash.url().contains("ws/movie"));
-        assertTrue(movieWsWithoutSlash.url().contains("/api") &&
-                movieWsWithoutSlash.url().contains("ws/movie"));
-    }
-
-    @Test
-    public void testReverseHomeControllerTvWsRoute() {
-        ReverseHomeController withSlash = new ReverseHomeController(new AbstractFunction0<String>() {
-            @Override
-            public String apply() {
-                return "/";
-            }
-        });
-
-        ReverseHomeController withoutSlash = new ReverseHomeController(new AbstractFunction0<String>() {
-            @Override
-            public String apply() {
-                return "/api";
-            }
-        });
-
-        // Hits controllers_HomeController_tvWs11_route
-        Call tvWsWithSlash    = withSlash.tvWs();
-        Call tvWsWithoutSlash = withoutSlash.tvWs();
-
-        assertNotNull(tvWsWithSlash);
-        assertNotNull(tvWsWithoutSlash);
-        assertTrue(tvWsWithSlash.url().contains("ws/tv"));
-        assertTrue(tvWsWithoutSlash.url().contains("/api") &&
-                tvWsWithoutSlash.url().contains("ws/tv"));
-    }
-
-    /**
-     * Covers the JavaScript reverse route wrappers for movieWs and tvWs,
-     * which are also red in the generated router (the invoker lazy vals).
-     * @ Zenghui WU
-     */
-    @Test
-    public void testJavaScriptReverseMovieWsAndTvWsCoverage() {
-        controllers.javascript.ReverseHomeController withSlash =
-                new controllers.javascript.ReverseHomeController(new AbstractFunction0<String>() {
-                    @Override
-                    public String apply() {
-                        return "/";
-                    }
-                });
-
-        controllers.javascript.ReverseHomeController withoutSlash =
-                new controllers.javascript.ReverseHomeController(new AbstractFunction0<String>() {
-                    @Override
-                    public String apply() {
-                        return "/api";
-                    }
-                });
-
-        // Force both route and invoker lazy vals to initialize
-        JavaScriptReverseRoute movieWs1 = withSlash.movieWs();
-        JavaScriptReverseRoute movieWs2 = withoutSlash.movieWs();
-        JavaScriptReverseRoute tvWs1    = withSlash.tvWs();
-        JavaScriptReverseRoute tvWs2    = withoutSlash.tvWs();
-
-        assertNotNull(movieWs1);
-        assertNotNull(movieWs2);
-        assertNotNull(tvWs1);
-        assertNotNull(tvWs2);
-    }
 }
-

@@ -5,9 +5,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.Utils;
 import play.libs.Json;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * Service responsible for all TMDb API communications.
  * This service centralizes external HTTP calls and prevents business logic
@@ -35,12 +32,13 @@ public class TmdbService {
         String searchUrl = apiUrl + "search/";
 
         switch (category) {
-            case "movie" -> searchUrl += "movie?query=" + encodedQuery;
-            case "tv" -> searchUrl += "tv?query=" + encodedQuery;
-            case "person" -> searchUrl += "person?query=" + encodedQuery;
+            case "movie" -> { return Utils.sendGetRequest(searchUrl + "movie?query=" + encodedQuery + "&page=" + currentPage, token); }
+            case "tv"    -> { return Utils.sendGetRequest(searchUrl + "tv?query=" + encodedQuery + "&page=" + currentPage, token); }
+            case "person"-> { return Utils.sendGetRequest(searchUrl + "person?query=" + encodedQuery + "&page=" + currentPage, token); }
+            default      -> { return Utils.sendGetRequest(searchUrl, token); }
         }
 
-        return Utils.sendGetRequest(searchUrl + "&page=" + currentPage, token);
+       // return Utils.sendGetRequest(searchUrl + "&page=" + currentPage, token);
     }
 
     /**
@@ -182,6 +180,8 @@ public class TmdbService {
     /**
      * Fetches search results immediately (used by WebSocket reactive updates).
      * Returns the list of results array from TMDb response.
+     *
+     * @author Mahmoud Saghir
      */
     public ObjectNode searchNow(String apiUrl, String token, String query, String category, int currentPage) {
         ObjectNode resultNode = Json.newObject();

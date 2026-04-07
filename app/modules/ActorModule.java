@@ -10,8 +10,9 @@ import services.TmdbService;
 import com.typesafe.config.Config;
 
 import javax.inject.Inject;
-import javax.inject.Named;
 import javax.inject.Provider;
+
+import actors.FinancialPerformanceActor;
 
 /**
  * Guice module for binding actors.
@@ -24,12 +25,17 @@ public class ActorModule extends AbstractModule {
      * Configures the actor bindings.
      *
      * @author Mahmoud Saghir
+     * @author Charles Wang (financialActor)
      */
     @Override
     protected void configure() {
         bind(ActorRef.class)
             .annotatedWith(Names.named("supervisorActor"))
             .toProvider(GlobalDiversityActorProvider.class);
+
+        bind(ActorRef.class)
+                .annotatedWith(Names.named("financialActor"))
+                .toProvider(FinancialPerformanceActorProvider.class);
     }
 
     public static class GlobalDiversityActorProvider implements Provider<ActorRef> {
@@ -62,6 +68,24 @@ public class ActorModule extends AbstractModule {
                             () -> new SupervisorActor(service, tmdbService, apiUrl, tmdbToken)
                     ),
                     "supervisor-actor"
+            );
+        }
+    }
+
+    public static class FinancialPerformanceActorProvider implements Provider<ActorRef> {
+
+        private final ActorSystem actorSystem;
+
+        @Inject
+        public FinancialPerformanceActorProvider(ActorSystem actorSystem) {
+            this.actorSystem = actorSystem;
+        }
+
+        @Override
+        public ActorRef get() {
+            return actorSystem.actorOf(
+                    FinancialPerformanceActor.props(),
+                    "financial-performance-actor"
             );
         }
     }
