@@ -1499,5 +1499,31 @@ public class HomeControllerTest {
         boolean result = (boolean) m.invoke(controller, item, "xyz_no_match");
         assertFalse("matchesQuery must return false when no field contains the query", result);
     }
+    /**
+     * Tests that the movie WebSocket endpoint returns a non-null WebSocket handler.
+     *
+     * Covers:
+     *   public WebSocket movieWs() {
+     *       return WebSocket.Json.accept(req -> buildMediaFlow("movie"));
+     *   }
+     */
+    @Test
+    public void testMovieWsEndpointNotNull() {
+        assertNotNull(controller.movieWs());
+    }
+
+    /**
+     * Tests that the TV WebSocket endpoint returns a non-null WebSocket handler.
+     *
+     * Covers:
+     *   public WebSocket tvWs() {
+     *       return WebSocket.Json.accept(req -> buildMediaFlow("tv"));
+     *   }
+     */
+    @Test
+    public void testTvWsEndpointNotNull() {
+        assertNotNull(controller.tvWs());
+    }
+
 
 }

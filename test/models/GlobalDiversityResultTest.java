@@ -31,4 +31,5 @@ public class GlobalDiversityResultTest {
         assertEquals(localizationIndex, result.localizationIndex, 0.0001);
         assertEquals(mediaName, result.mediaName);
     }
+
 }
