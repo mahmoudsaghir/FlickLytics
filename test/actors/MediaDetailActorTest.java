@@ -622,7 +622,6 @@ public class MediaDetailActorTest {
             expectNoMessage(duration("300 millis"));
         }};
     }
-
     /**
      * matchesQuery returns true when query is null (set via ChangeSearch).
      */
