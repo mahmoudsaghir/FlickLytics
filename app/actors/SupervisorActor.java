@@ -5,6 +5,7 @@ import org.apache.pekko.actor.*;
 import org.apache.pekko.pattern.Patterns;
 import org.apache.pekko.japi.pf.DeciderBuilder;
 import services.GlobalDiversityService;
+import services.ReviewsService;
 import services.TmdbService;
 
 import java.time.Duration;
@@ -18,6 +19,7 @@ import java.util.List;
 public class SupervisorActor extends AbstractActor {
 
     private final GlobalDiversityService globalDiversityService;
+    private final ReviewsService reviewsService;
     private final TmdbService tmdbService;
     private final String apiUrl;
     private final String tmdbToken;
@@ -90,12 +92,28 @@ public class SupervisorActor extends AbstractActor {
         }
     }
 
+    /**
+     * Message to compute review sentiment summaries via ReviewsActor.
+     *
+     * @author Tasmia Naomi
+     */
+    public static class ComputeReviews {
+        public final String type;
+        public final Long id;
+
+        public ComputeReviews(String type, Long id) {
+            this.type = type;
+            this.id = id;
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Internal state
     // -------------------------------------------------------------------------
 
     private ActorRef globalDiversityActor;
     private ActorRef personStatsActor;
+    private ActorRef reviewsActor;
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -105,16 +123,20 @@ public class SupervisorActor extends AbstractActor {
      * Constructor for SupervisorActor.
      *
      * @param globalDiversityService GlobalDiversityService instance
+     * @param reviewsService         ReviewsService instance
      * @param tmdbService            TmdbService instance
      * @param apiUrl                 API URL string
      * @param tmdbToken              TMDB token string
      * @author Mahmoud Saghir
+     * @author Tasmia Naomi
      */
     public SupervisorActor(GlobalDiversityService globalDiversityService,
+                           ReviewsService reviewsService,
                            TmdbService tmdbService,
                            String apiUrl,
                            String tmdbToken) {
         this.globalDiversityService = globalDiversityService;
+        this.reviewsService         = reviewsService;
         this.tmdbService            = tmdbService;
         this.apiUrl                 = apiUrl;
         this.tmdbToken              = tmdbToken;
@@ -140,7 +162,9 @@ public class SupervisorActor extends AbstractActor {
         );
         personStatsActor = getContext().actorOf(
                 PersonStatsActor.props(null), "personStatsActor");
-        getContext().getSystem().log().info("Children ready: globalDiversityActor, personStatsActor");
+        reviewsActor = getContext().actorOf(
+                ReviewsActor.props(reviewsService, apiUrl, tmdbToken), "reviewsActor");
+        getContext().getSystem().log().info("Children ready: globalDiversityActor, personStatsActor, reviewsActor");
     }
 
     // -------------------------------------------------------------------------
@@ -189,6 +213,19 @@ public class SupervisorActor extends AbstractActor {
                                             msg.birthday,
                                             msg.placeOfBirth
                                     ),
+                                    Duration.ofSeconds(3)
+                            ),
+                            getContext().dispatcher()
+                    ).to(replyTo);
+                })
+
+                // Reviews summary
+                .match(ComputeReviews.class, msg -> {
+                    ActorRef replyTo = getSender();
+                    Patterns.pipe(
+                            Patterns.ask(
+                                    reviewsActor,
+                                    new ReviewsActor.ComputeReviews(msg.type, msg.id),
                                     Duration.ofSeconds(3)
                             ),
                             getContext().dispatcher()

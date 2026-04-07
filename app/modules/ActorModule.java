@@ -6,6 +6,7 @@ import org.apache.pekko.actor.ActorRef;
 import org.apache.pekko.actor.ActorSystem;
 import actors.SupervisorActor;
 import services.GlobalDiversityService;
+import services.ReviewsService;
 import services.TmdbService;
 import com.typesafe.config.Config;
 
@@ -42,6 +43,7 @@ public class ActorModule extends AbstractModule {
 
         private final ActorSystem actorSystem;
         private final GlobalDiversityService service;
+        private final ReviewsService reviewsService;
         private final TmdbService tmdbService;
         private final String apiUrl;
         private final String tmdbToken;
@@ -50,10 +52,12 @@ public class ActorModule extends AbstractModule {
         @Inject
         public GlobalDiversityActorProvider(ActorSystem actorSystem,
                                             GlobalDiversityService service,
+                                            ReviewsService reviewsService,
                                             TmdbService tmdbService,
                                             Config config) {
             this.actorSystem = actorSystem;
             this.service = service;
+            this.reviewsService = reviewsService;
             this.tmdbService = tmdbService;
             this.config = config;
             this.apiUrl = config.getString("tmdb.api.url");
@@ -65,7 +69,7 @@ public class ActorModule extends AbstractModule {
             return actorSystem.actorOf(
                     org.apache.pekko.actor.Props.create(
                             SupervisorActor.class,
-                            () -> new SupervisorActor(service, tmdbService, apiUrl, tmdbToken)
+                            () -> new SupervisorActor(service, reviewsService, tmdbService, apiUrl, tmdbToken)
                     ),
                     "supervisor-actor"
             );
