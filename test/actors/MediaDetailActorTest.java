@@ -647,4 +647,65 @@ public class MediaDetailActorTest {
         }};
 
     }
+    @Test
+    public void testMatchesTypeReturnsTrueWhenMediaTypeIsAll() {
+        MediaDetailsActor.MediaDetailsFilter f =
+                new MediaDetailsActor.MediaDetailsFilter("all", "");
+
+        ObjectNode item = Json.newObject();
+        item.put("id", "1");
+        item.put("type", "movie");
+        item.put("title", "Batman");
+
+        assertTrue(f.accept(item));
+    }
+    @Test
+    public void testMatchesTypeWithAllReturnsTrue() {
+        MediaDetailsActor.MediaDetailsFilter filter =
+                new MediaDetailsActor.MediaDetailsFilter("all", "");
+
+        ObjectNode item = Json.newObject();
+        item.put("id", "1");
+        item.put("type", "movie");
+
+        assertTrue(filter.accept(item));
+    }
+
+    /**
+     * Covers the yellow partial-branch on:
+     *   if (mediaType == null || mediaType.isBlank() || "all".equalsIgnoreCase(mediaType))
+     * The null guard is exercised via ChangeSearch(null, ...) on the actor,
+     * which resets the filter with null and then accepts any incoming item.
+     * (Passing null directly to MediaDetailsFilter constructor causes NPE
+     *  because the constructor stores it raw into typeFilter — so null is
+     *  only safe to arrive through the actor's reset path.)
+     */
+    @Test
+    public void testNullMediaTypeViaChangeSearchAcceptsAnyItem() {
+        new TestKit(system) {{
+            ActorRef actor = system.actorOf(
+                    MediaDetailsActor.props(getRef(), "movie"));
+
+            actor.tell(new MediaDetailsActor.StartSession(
+                    "movie", "", Collections.emptyList()), ActorRef.noSender());
+
+            // Reset with null mediaType — exercises the null branch in matchesType
+            actor.tell(new MediaDetailsActor.ChangeSearch(
+                    null, "", Collections.emptyList()), ActorRef.noSender());
+
+            // Both movie and tv should now pass through
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("1", "movie", "Fight Club")), ActorRef.noSender());
+            actor.tell(new MediaDetailsActor.NewItem(
+                    makeItem("2", "tv", "Breaking Bad")), ActorRef.noSender());
+
+            ObjectNode r1 = expectMsgClass(duration("1 second"), ObjectNode.class);
+            ObjectNode r2 = expectMsgClass(duration("1 second"), ObjectNode.class);
+            assertEquals("1", r1.path("id").asText());
+            assertEquals("2", r2.path("id").asText());
+            expectNoMessage(duration("300 millis"));
+        }};
+    }
+
+
 }

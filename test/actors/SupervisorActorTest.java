@@ -72,5 +72,18 @@ public class SupervisorActorTest {
             assertEquals("Movie A", stats.getLatestItems().get(1).getTitle());
         }};
     }
+    @Test
+    public void testCreateSearchActorConstructorSetsFields() {
+        new TestKit(system) {{
+            ActorRef out = getRef();
+            Props props = Props.empty();
+
+            SupervisorActor.CreateSearchActor message =
+                    new SupervisorActor.CreateSearchActor(out, props);
+
+            assertEquals(out, message.out);
+            assertEquals(props, message.props);
+        }};
+    }
 }
 

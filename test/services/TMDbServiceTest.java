@@ -1,6 +1,7 @@
 package services;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.MovieOrTVShow;
 import models.PersonStats;
 import models.Utils;
@@ -1037,5 +1038,98 @@ public class TMDbServiceTest {
 
             tmdbService.getDetailsAndTranslations("http://api.tmdb.org/3/", "token", "tv", 99L);
         }
+    }
+
+    //add more test
+    // ===== TmdbService.searchNow Tests =====
+
+    /**
+     * Covers searchNow success path when search() returns a valid results array.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testSearchNowReturnsResultsAndTotalResults() throws Exception {
+        TmdbService tmdbService = spy(new TmdbService());
+
+        JsonNode searchResponse = play.libs.Json.parse(
+                "{\"results\":[{\"id\":1,\"title\":\"Movie A\"}],\"total_results\":1}"
+        );
+
+        doReturn(searchResponse).when(tmdbService)
+                .search("http://api.tmdb.org/3/", "token", "Movie A", "movie", 1);
+
+        ObjectNode result = tmdbService.searchNow(
+                "http://api.tmdb.org/3/",
+                "token",
+                "Movie A",
+                "movie",
+                1
+        );
+
+        assertNotNull(result);
+        assertTrue(result.has("results"));
+        assertTrue(result.get("results").isArray());
+        assertEquals(1, result.get("results").size());
+        assertEquals("Movie A", result.get("results").get(0).path("title").asText());
+        assertEquals(1, result.path("total_results").asInt());
+    }
+
+    /**
+     * Covers searchNow fallback branch when search() does not return a results array.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testSearchNowReturnsEmptyArrayWhenResultsMissingOrNotArray() throws Exception {
+        TmdbService tmdbService = spy(new TmdbService());
+
+        JsonNode searchResponse = play.libs.Json.parse(
+                "{\"results\":{\"id\":1},\"total_results\":7}"
+        );
+
+        doReturn(searchResponse).when(tmdbService)
+                .search("http://api.tmdb.org/3/", "token", "Movie A", "movie", 1);
+
+        ObjectNode result = tmdbService.searchNow(
+                "http://api.tmdb.org/3/",
+                "token",
+                "Movie A",
+                "movie",
+                1
+        );
+
+        assertNotNull(result);
+        assertTrue(result.has("results"));
+        assertTrue(result.get("results").isArray());
+        assertEquals(0, result.get("results").size());
+        assertEquals(7, result.path("total_results").asInt());
+    }
+
+    /**
+     * Covers searchNow catch block when search() throws an exception.
+     *
+     * @author Syed Shahab Shah
+     */
+    @Test
+    public void testSearchNowReturnsEmptyArrayAndZeroOnException() throws Exception {
+        TmdbService tmdbService = spy(new TmdbService());
+
+        doThrow(new RuntimeException("API failure")).when(tmdbService)
+                .search("http://api.tmdb.org/3/", "token", "Movie A", "movie", 1);
+
+        ObjectNode result = tmdbService.searchNow(
+                "http://api.tmdb.org/3/",
+                "token",
+                "Movie A",
+                "movie",
+                1
+        );
+
+        assertNotNull(result);
+        assertTrue(result.has("results"));
+        assertTrue(result.get("results").isArray());
+        assertEquals(0, result.get("results").size());
+        assertEquals(0, result.path("total_results").asInt());
     }
 }
