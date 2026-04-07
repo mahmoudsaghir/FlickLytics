@@ -469,14 +469,17 @@ public class HomeControllerTest {
         reviews.add(new Review("Jane", "Excellent and fantastic film!", ":-)", 100.0, 0.0));
         ReviewsSummary mockSummary = new ReviewsSummary(reviews);
 
-        when(reviewsService.getReviewsWithSentiment(anyString(), anyString(), eq("movie"), eq(123L)))
-                .thenReturn(mockSummary);
+        CompletionStage<Object> future = CompletableFuture.completedFuture(mockSummary);
 
         Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/flicklytics/reviews/movie/123");
         Http.Request request = requestBuilder.build();
 
-        CompletionStage<Result> resultStage = controller.reviews("movie", 123L, request);
-        Result result = resultStage.toCompletableFuture().join();
+        Result result;
+        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class)))
+                    .thenReturn(future);
+            result = controller.reviews("movie", 123L, request).toCompletableFuture().join();
+        }
 
         assertEquals(OK, result.status());
         String html = contentAsString(result);
@@ -494,14 +497,17 @@ public class HomeControllerTest {
      */
     @Test
     public void testReviewsActionFailure() throws Exception {
-        when(reviewsService.getReviewsWithSentiment(anyString(), anyString(), eq("movie"), eq(999L)))
-                .thenThrow(new RuntimeException("API failure"));
+        CompletionStage<Object> failed = CompletableFuture.failedFuture(new RuntimeException("API failure"));
 
         Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/flicklytics/reviews/movie/999");
         Http.Request request = requestBuilder.build();
 
-        CompletionStage<Result> resultStage = controller.reviews("movie", 999L, request);
-        Result result = resultStage.toCompletableFuture().join();
+        Result result;
+        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class)))
+                    .thenReturn(failed);
+            result = controller.reviews("movie", 999L, request).toCompletableFuture().join();
+        }
 
         assertEquals(INTERNAL_SERVER_ERROR, result.status());
     }
@@ -518,14 +524,17 @@ public class HomeControllerTest {
         reviews.add(new Review("Reviewer1", "Terrible and awful show.", ":-(", 0.0, 100.0));
         ReviewsSummary mockSummary = new ReviewsSummary(reviews);
 
-        when(reviewsService.getReviewsWithSentiment(anyString(), anyString(), eq("tv"), eq(456L)))
-                .thenReturn(mockSummary);
+        CompletionStage<Object> future = CompletableFuture.completedFuture(mockSummary);
 
         Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/flicklytics/reviews/tv/456");
         Http.Request request = requestBuilder.build();
 
-        CompletionStage<Result> resultStage = controller.reviews("tv", 456L, request);
-        Result result = resultStage.toCompletableFuture().join();
+        Result result;
+        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class)))
+                    .thenReturn(future);
+            result = controller.reviews("tv", 456L, request).toCompletableFuture().join();
+        }
 
         assertEquals(OK, result.status());
         String html = contentAsString(result);
@@ -545,14 +554,17 @@ public class HomeControllerTest {
         List<Review> reviews = new ArrayList<>();
         ReviewsSummary mockSummary = new ReviewsSummary(reviews);
 
-        when(reviewsService.getReviewsWithSentiment(anyString(), anyString(), eq("movie"), eq(789L)))
-                .thenReturn(mockSummary);
+        CompletionStage<Object> future = CompletableFuture.completedFuture(mockSummary);
 
         Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/flicklytics/reviews/movie/789");
         Http.Request request = requestBuilder.build();
 
-        CompletionStage<Result> resultStage = controller.reviews("movie", 789L, request);
-        Result result = resultStage.toCompletableFuture().join();
+        Result result;
+        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class)))
+                    .thenReturn(future);
+            result = controller.reviews("movie", 789L, request).toCompletableFuture().join();
+        }
 
         assertEquals(OK, result.status());
         String html = contentAsString(result);

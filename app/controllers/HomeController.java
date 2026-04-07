@@ -2,7 +2,7 @@ package controllers;
 
 import actors.GlobalDiversityActor;
 import actors.MediaDetailsActor;
-import actors.SearchWebSocketActor;
+import actors.SupervisedSearchWebSocketActor;
 import actors.SupervisorActor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -12,6 +12,7 @@ import models.FinancialPerformance;
 import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
 import models.PersonStats;
+import models.ReviewsSummary;
 import org.apache.pekko.actor.ActorRef;
 import org.apache.pekko.actor.ActorSystem;
 import org.apache.pekko.actor.Props;
@@ -618,27 +619,21 @@ public class HomeController extends Controller {
     public CompletionStage<Result> reviews(String type, Long id, Http.Request request) {
         Messages messages = messagesApi.preferred(request);
 
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return reviewsService.getReviewsWithSentiment(apiUrl, tmdbToken, type, id);
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-            }
-        }, clExecutionContext.current()).thenApply(reviewsSummary -> {
-            if (reviewsSummary == null) {
-                return internalServerError("Failed to fetch reviews");
-            }
-
-            return ok(views.html.reviews.render(
-                    type,
-                    id,
-                    reviewsSummary,
-                    request,
-                    messages,
-                    webJarsUtil
-            ));
-        });
+        return Patterns.ask(
+                        supervisorActor,
+                        new SupervisorActor.ComputeReviews(type, id),
+                        Duration.ofSeconds(3)
+                )
+                .thenApply(resultObj -> (ReviewsSummary) resultObj)
+                .thenApply(reviewsSummary -> ok(views.html.reviews.render(
+                        type,
+                        id,
+                        reviewsSummary,
+                        request,
+                        messages,
+                        webJarsUtil
+                )))
+                .exceptionally(ex -> internalServerError("Failed to fetch reviews"));
     }
 
     private List<ObjectNode> buildSeedItems(String mediaType, String query) {
@@ -672,6 +667,9 @@ public class HomeController extends Controller {
         }
 
         Collections.reverse(results);
+        if (results.size() > 10) {
+            return new ArrayList<>(results.subList(0, 10));
+        }
         return results;
     }
 
@@ -713,7 +711,15 @@ public class HomeController extends Controller {
     public WebSocket ws() {
         return WebSocket.Text.accept(request ->
                 ActorFlow.actorRef(
-                        out -> Props.create(SearchWebSocketActor.class, out, tmdbService, apiUrl, tmdbToken, movieGenres, tvGenres),
+                        out -> SupervisedSearchWebSocketActor.props(
+                                out,
+                                supervisorActor,
+                                tmdbService,
+                                apiUrl,
+                                tmdbToken,
+                                movieGenres,
+                                tvGenres
+                        ),
                         16,
                         OverflowStrategy.dropBuffer(),
                         actorSystem,
