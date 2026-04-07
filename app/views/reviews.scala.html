@@ -1,10 +1,17 @@
-@(mediaType: String, id: Long, reviewsSummary: models.ReviewsSummary, request: Http.Request, messages: play.i18n.Messages)
+@(mediaType: String, id: Long, reviewsSummary: models.ReviewsSummary)(implicit request: Http.Request, messages: play.i18n.Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
 
 @main("Reviews - " + mediaType.capitalize) {
-<div class="container mt-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Reviews and Sentiment Analysis</h1>
-        <a href="/" class="btn btn-secondary">Back to Search</a>
+<div class="container mt-4">
+    @* --- Page Header --- *@
+    <div class="page-header d-flex justify-content-between align-items-center">
+        <div>
+            <h1>Reviews and Sentiment Analysis</h1>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <button type="button" class="btn-back" onclick="window.history.back()">
+                    &#8592; Back to Search
+            </button>
+        </div>
     </div>
 
     @* --- Aggregated Sentiment Summary --- *@

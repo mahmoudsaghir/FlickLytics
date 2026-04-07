@@ -1,25 +1,65 @@
-@(category: String, id: Int, mediaName: String, translationDensity: Double, localizationIndex: Double)(implicit request: Http.Request, messages: MessagesProvider)
+@(category: String, id: Int, mediaName: String, translationDensity: Double, localizationIndex: Double)(implicit request: Http.Request, messages: MessagesProvider, webJarsUtil: org.webjars.play.WebJarsUtil)
 
 @main("Global Diversity") {
+        <div class="container mt-4">
+            @* --- Page Header --- *@
+            <div class="page-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h1>Global Diversity Analysis</h1>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <button type="button" class="btn-back" onclick="window.history.back()">
+                            &#8592; Back to Search
+                    </button>
+                </div>
+            </div>
 
-    <div class="container mt-4">
-        <h2>Global Diversity Analysis</h2>
+            <div class="row mt-3 g-3">
 
-        <div class="card shadow-sm p-4 mt-3">
-            <p><strong>ID:</strong> @id</p>
-            <p><strong>Name:</strong> @mediaName</p>
-            <p><strong>Category:</strong> @category.capitalize</p>
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h4 class="card-title mb-3">Details</h4>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>ID</th>
+                                        <td>@id</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Name</th>
+                                        <td>@mediaName</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Category</th>
+                                        <td>@(if(category == "tv") "TV show" else if(category == "movie") "Movie" else category.capitalize)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
 
-            <hr>
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h4 class="card-title mb-3">Metrics</h4>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>Translation Density</th>
+                                        <td>@translationDensity</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Localization Index</th>
+                                        <td>@localizationIndex</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
 
-            <h4>Metrics</h4>
-            <p><strong>Translation Density:</strong> @translationDensity</p>
-            <p><strong>Localization Index:</strong> @localizationIndex</p>
-
-            <button type="button" class="btn btn-primary mt-3" onclick="window.history.back()">
-                Back to Search
-            </button>
+            </div>
         </div>
-    </div>
-
 }

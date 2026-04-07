@@ -17,22 +17,23 @@ public class GlobalDiversityService {
     /**
      * Computes Translation Density and Localization Index.
      *
-     * @param category               movie or tv
-     * @param detailsRoot            TMDb details response
-     * @param translationRoot        TMDb translations response
-     * @param targetLanguageConstant normalization constant
+     * @param category                   movie or tv
+     * @param detailsAndTranslationRoot details and translations
+     * @param targetLanguageConstant     normalization constant
      * @return GlobalDiversityResult
+     * @author Mahmoud Saghir
      */
-    public GlobalDiversityResult compute(String category, JsonNode detailsRoot, JsonNode translationRoot, int targetLanguageConstant) {
-        String originalOverview = detailsRoot.path("overview").asText("");
+    public GlobalDiversityResult compute(String category, JsonNode detailsAndTranslationRoot, int targetLanguageConstant) {
+        String originalOverview = detailsAndTranslationRoot.path("overview").asText("");
 
         String mediaName = category.equals("movie")
-                ? detailsRoot.path("title").asText("")
-                : detailsRoot.path("name").asText("");
+                ? detailsAndTranslationRoot.path("title").asText("")
+                : detailsAndTranslationRoot.path("name").asText("");
 
         int originalLength = Math.max(originalOverview.length(), 1);
 
-        ArrayNode translationsArray = (ArrayNode) translationRoot.path("translations");
+        ArrayNode translationsArray = (ArrayNode) detailsAndTranslationRoot.path("translations")
+                .path("translations");
 
         // Translation Density
         double translationDensity = (double) translationsArray.size() / targetLanguageConstant;
@@ -41,7 +42,7 @@ public class GlobalDiversityService {
         double localizationIndex = StreamSupport.stream(translationsArray.spliterator(), false)
                 .map(node -> node.path("data").path("overview").asText(""))
                 .filter(overview -> !overview.isEmpty())
-                .mapToDouble(overview -> (double) overview.length() / originalLength)
+                .mapToDouble(overview -> Math.min((double) overview.length() / originalLength, 1.0))
                 .average()
                 .orElse(0.0);
 

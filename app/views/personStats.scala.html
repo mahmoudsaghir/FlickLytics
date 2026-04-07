@@ -1,66 +1,148 @@
-@(stats: models.PersonStats, request: Http.Request, messages: play.i18n.Messages)
+@import scala.jdk.CollectionConverters._
+@(stats: models.PersonStats)(implicit request: Http.Request, messages: play.i18n.Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
 
 @main("Person Statistics") {
-<div class="container mt-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Person Statistics</h1>
-        <a href="/" class="btn btn-secondary">Back to Search</a>
-    </div>
+    <div class="container">
 
-    @* --- Summary Statistics Table --- *@
-    <div class="card shadow-sm mb-5">
-        <div class="card-header bg-primary text-white">
-            <h4 class="mb-0">Aggregated Statistics (Latest 50 Items)</h4>
-        </div>
-        <div class="card-body">
-            <table class="table table-bordered text-center">
-                <thead class="table-light">
-                <tr>
-                    <th>Metric</th>
-                    <th>Average</th>
-                    <th>Minimum</th>
-                    <th>Maximum</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr>
-                    <td><strong>Popularity</strong></td>
-                    <td>@("%.2f".format(stats.getPopAvg()))</td>
-                    <td>@("%.2f".format(stats.getPopMin()))</td>
-                    <td>@("%.2f".format(stats.getPopMax()))</td>
-                </tr>
-                <tr>
-                    <td><strong>Vote Average</strong></td>
-                    <td>@("%.2f".format(stats.getVoteAvg()))</td>
-                    <td>@("%.2f".format(stats.getVoteMin()))</td>
-                    <td>@("%.2f".format(stats.getVoteMax()))</td>
-                </tr>
-                <tr>
-                    <td><strong>Vote Count</strong></td>
-                    <td>@("%.1f".format(stats.getCountAvg()))</td>
-                    <td>@stats.getCountMin()</td>
-                    <td>@stats.getCountMax()</td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    @* --- Individual Items List --- *@
-    <h3>Recent Works</h3>
-    <div class="list-group shadow-sm">
-        @for(item <- stats.getLatestItems()) {
-        <div class="list-group-item">
-            <div class="d-flex w-100 justify-content-between">
-                <h5 class="mb-1">@item.getTitle()</h5>
-                <small class="text-muted">ID: @item.getId()</small>
+        @* --- Page Header --- *@
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div>
+                <h1>@if(stats.getPersonName() != null) {@stats.getPersonName()} else {Person Statistics}</h1>
+                <div class="subtitle">Aggregated analytics across latest works</div>
             </div>
-            <p class="mb-1">
-                Popularity: <span class="badge bg-info text-dark">@item.getPopularity()</span> |
-                Rating: <span class="badge bg-warning text-dark">@item.getVoteAverage()</span>
-            </p>
+            <div class="d-flex align-items-center gap-3">
+                <span class="total-items-badge">@stats.getLatestItems().size() items</span>
+                <button type="button" class="btn-back" onclick="window.history.back()">
+                        &#8592; Back to Search
+                </button>
+            </div>
         </div>
+
+        @* --- Person Profile Card --- *@
+        <div class="person-profile-card mb-4">
+            <div class="d-flex flex-column flex-md-row align-items-center align-items-md-start gap-4">
+                @if(stats.getProfilePhotoUrl() != null && !stats.getProfilePhotoUrl().isEmpty()) {
+                    <img src="@stats.getProfilePhotoUrl()" alt="@stats.getPersonName()" class="person-photo" />
+                } else {
+                    <div class="person-photo-placeholder">
+                        <span>&#128100;</span>
+                    </div>
+                }
+                <div class="flex-grow-1 w-100">
+                    <table class="person-info-table">
+                        <tbody>
+                            <tr>
+                                <th>Known For</th>
+                                <td>@stats.getKnownFor()</td>
+                            </tr>
+                            <tr>
+                                <th>Gender</th>
+                                <td>@stats.getGender()</td>
+                            </tr>
+                            <tr>
+                                <th>Birthday</th>
+                                <td>@stats.getBirthday()</td>
+                            </tr>
+                            <tr>
+                                <th>Age</th>
+                                <td>@if(stats.getAge() >= 0) {@stats.getAge() years} else {N/A}</td>
+                            </tr>
+                            <tr>
+                                <th>Place of Birth</th>
+                                <td>@stats.getPlaceOfBirth()</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        @* --- Metric Cards --- *@
+        <div class="metric-section-title">Performance Metrics</div>
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="metric-card">
+                    <div class="metric-icon popularity">&#9733;</div>
+                    <div class="metric-label">Popularity</div>
+                    <div class="metric-row">
+                        <span class="label">Count</span>
+                        <span class="value">@stats.getLatestItems().size()</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Average</span>
+                        <span class="value avg">@("%.2f".format(stats.getPopAvg()))</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Minimum</span>
+                        <span class="value">@("%.2f".format(stats.getPopMin()))</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Maximum</span>
+                        <span class="value">@("%.2f".format(stats.getPopMax()))</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric-card">
+                    <div class="metric-icon vote-avg">&#9829;</div>
+                    <div class="metric-label">Vote Average</div>
+                    <div class="metric-row">
+                        <span class="label">Count</span>
+                        <span class="value">@stats.getLatestItems().size()</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Average</span>
+                        <span class="value avg">@("%.2f".format(stats.getVoteAvg()))</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Minimum</span>
+                        <span class="value">@("%.2f".format(stats.getVoteMin()))</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Maximum</span>
+                        <span class="value">@("%.2f".format(stats.getVoteMax()))</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric-card">
+                    <div class="metric-icon vote-count">&#9998;</div>
+                    <div class="metric-label">Vote Count</div>
+                    <div class="metric-row">
+                        <span class="label">Count</span>
+                        <span class="value">@stats.getLatestItems().size()</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Average</span>
+                        <span class="value avg">@("%.1f".format(stats.getCountAvg()))</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Minimum</span>
+                        <span class="value">@stats.getCountMin()</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="label">Maximum</span>
+                        <span class="value">@stats.getCountMax()</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* --- Recent Works with Numbering --- *@
+        <div class="works-section-title">Recent Works</div>
+        @for((item, idx) <- stats.getLatestItems().asScala.zipWithIndex) {
+            <div class="work-item">
+                <div class="work-number">@(idx + 1)</div>
+                <div class="work-details">
+                    <div class="work-title">@item.getTitle() @if(item.getYear() != null && !item.getYear().isEmpty()) {(@item.getYear())}</div>
+                    <div class="work-id">ID: @item.getId()</div>
+                </div>
+                    <div class="work-badges">
+                        <span class="stat-pill popularity">&#9733; Popularity: @item.getPopularity()</span>
+                        <span class="stat-pill rating">&#9733; Rating: @item.getVoteAverage()</span>
+                    </div>
+            </div>
         }
+
     </div>
-</div>
 }

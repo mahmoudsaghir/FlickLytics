@@ -1,5 +1,6 @@
 package models;
 
+import java.util.Comparator;
 import java.util.DoubleSummaryStatistics;
 import java.util.IntSummaryStatistics;
 import java.util.List;
@@ -14,10 +15,19 @@ import java.util.stream.Collectors;
  * @author Syed Shahab Shah
  */
 public class PersonStats {
-    private final List<MovieOrTVShow> latestItems;
+    private List<MovieOrTVShow> latestItems;
     private DoubleSummaryStatistics popularityStats;
     private DoubleSummaryStatistics voteAverageStats;
     private IntSummaryStatistics voteCountStats;
+
+    // Person profile details
+    private String personName;
+    private String profilePhotoUrl;
+    private String knownFor;
+    private String gender;
+    private String birthday;
+    private int age;
+    private String placeOfBirth;
 
     /**
      * Constructs a PersonStats object from a list of all available items.
@@ -28,15 +38,24 @@ public class PersonStats {
      * @author Syed Shahab Shah
      */
     public PersonStats(List<MovieOrTVShow> allItems) {
-        // Guard against null to prevent crashes
+        setItems(allItems);
+    }
+
+    /**
+     * Replaces known-for items and recomputes summary statistics.
+     *
+     * @param allItems latest TMDb known-for items
+     * @author Syed Shahab Shah
+     */
+    public void setItems(List<MovieOrTVShow> allItems) {
         if (allItems == null) {
             this.latestItems = java.util.Collections.emptyList();
         } else {
             this.latestItems = allItems.stream()
+                    .sorted(Comparator.comparing(MovieOrTVShow::getYear, Comparator.reverseOrder()))
                     .limit(50)
                     .collect(Collectors.toList());
         }
-
         calculateStatistics();
     }
 
@@ -170,4 +189,63 @@ public class PersonStats {
     public int getCountMax() {
         return latestItems.isEmpty() ? 0 : voteCountStats.getMax();
     }
+
+    /**
+     * Sets the person's profile details from TMDb person API response.
+     *
+     * @param name The person's full name
+     * @param profilePath The profile photo path from TMDb (e.g. "/abc.jpg")
+     * @param knownForDepartment The department the person is known for (e.g. "Acting")
+     * @param genderCode The gender code from TMDb (1=Female, 2=Male, 0=Not specified)
+     * @param birthday The birthday string in "YYYY-MM-DD" format
+     * @param placeOfBirth The place of birth
+     * @author Syed Shahab Shah
+     */
+    public void setPersonDetails(String name, String profilePath, String knownForDepartment,
+                                 int genderCode, String birthday, String placeOfBirth) {
+        this.personName = (name != null) ? name : "Unknown";
+        this.profilePhotoUrl = (profilePath != null && !profilePath.isEmpty())
+                ? "https://image.tmdb.org/t/p/w300" + profilePath : "";
+        this.knownFor = (knownForDepartment != null) ? knownForDepartment : "N/A";
+        this.gender = switch (genderCode) {
+            case 1 -> "Female";
+            case 2 -> "Male";
+            default -> "Not specified";
+        };
+        this.birthday = (birthday != null && !birthday.isEmpty()) ? birthday : "N/A";
+        this.placeOfBirth = (placeOfBirth != null && !placeOfBirth.isEmpty()) ? placeOfBirth : "N/A";
+
+        // Calculate age from birthday
+        if (birthday != null && birthday.length() >= 10) {
+            try {
+                java.time.LocalDate birthDate = java.time.LocalDate.parse(birthday);
+                this.age = java.time.Period.between(birthDate, java.time.LocalDate.now()).getYears();
+            } catch (Exception e) {
+                this.age = -1;
+            }
+        } else {
+            this.age = -1;
+        }
+    }
+
+    /** @return The person's full name @author Syed Shahab Shah */
+    public String getPersonName() { return personName; }
+
+    /** @return The full URL to the person's profile photo @author Syed Shahab Shah */
+    public String getProfilePhotoUrl() { return profilePhotoUrl; }
+
+    /** @return The department the person is known for @author Syed Shahab Shah */
+    public String getKnownFor() { return knownFor; }
+
+    /** @return The person's gender as a string @author Syed Shahab Shah */
+    public String getGender() { return gender; }
+
+    /** @return The person's birthday in YYYY-MM-DD format @author Syed Shahab Shah */
+    public String getBirthday() { return birthday; }
+
+    /** @return The person's age, or -1 if unknown @author Syed Shahab Shah */
+    public int getAge() { return age; }
+
+    /** @return The person's place of birth @author Syed Shahab Shah */
+    public String getPlaceOfBirth() { return placeOfBirth; }
 }

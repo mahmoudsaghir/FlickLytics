@@ -20,6 +20,17 @@ import static org.junit.Assert.*;
 public class ReviewSentimentAnalyzerTest {
 
     /**
+     * Tests default constructor for coverage.
+     *
+     * @author Tasmia Naomi
+     */
+    @Test
+    public void testConstructor() {
+        ReviewSentimentAnalyzer analyzer = new ReviewSentimentAnalyzer();
+        assertNotNull(analyzer);
+    }
+
+    /**
      * Tests sentiment analysis with null input.
      * Should return neutral sentiment.
      *
@@ -291,6 +302,19 @@ public class ReviewSentimentAnalyzerTest {
         int[] counts = ReviewSentimentAnalyzer.countSentimentWords("the movie has actors and a plot");
         assertEquals(0, counts[0]);
         assertEquals(0, counts[1]);
+    }
+
+    /**
+     * Tests countSentimentWords with leading delimiters and repeated separators.
+     * Ensures empty split tokens are skipped while valid words are counted.
+     *
+     * @author Tasmia Naomi
+     */
+    @Test
+    public void testCountSentimentWordsSkipsEmptyTokens() {
+        int[] counts = ReviewSentimentAnalyzer.countSentimentWords("!!!excellent---awful???");
+        assertEquals(1, counts[0]);
+        assertEquals(1, counts[1]);
     }
 }
 
