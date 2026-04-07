@@ -1525,5 +1525,201 @@ public class HomeControllerTest {
         assertNotNull(controller.tvWs());
     }
 
+    @Test
+    public void testBuildSeedItemsSkipsWhenResultsIsNotArray() throws Exception {
+        java.lang.reflect.Field cacheField = HomeController.class.getDeclaredField("searchCache");
+        cacheField.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, JsonNode> cache =
+                (java.util.Map<String, JsonNode>) cacheField.get(controller);
+        cache.clear();
+
+        ObjectNode badNode = Json.newObject();
+        badNode.set("results", Json.newObject().put("title", "Batman"));
+
+        // red case: !resultArray.isArray() -> continue
+        cache.put("badEntry", badNode);
+
+        Method method = HomeController.class.getDeclaredMethod(
+                "buildSeedItems", String.class, String.class);
+        method.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        List<ObjectNode> results =
+                (List<ObjectNode>) method.invoke(controller, "movie", "batman");
+
+        assertTrue(results.isEmpty());
+    }
+    //add more cases
+    @Test
+    public void testBuildSeedItemsSkipsNonObjectItem() throws Exception {
+        java.lang.reflect.Field cacheField = HomeController.class.getDeclaredField("searchCache");
+        cacheField.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, JsonNode> cache =
+                (java.util.Map<String, JsonNode>) cacheField.get(controller);
+        cache.clear();
+
+        com.fasterxml.jackson.databind.node.ArrayNode resultsArray = Json.newArray();
+        resultsArray.add("not-an-object"); // covers: if (!item.isObject()) continue;
+
+        ObjectNode cacheNode = Json.newObject();
+        cacheNode.set("results", resultsArray);
+        cache.put("entry", cacheNode);
+
+        Method method = HomeController.class.getDeclaredMethod(
+                "buildSeedItems", String.class, String.class);
+        method.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        List<ObjectNode> results =
+                (List<ObjectNode>) method.invoke(controller, "movie", "batman");
+
+        assertTrue(results.isEmpty());
+    }
+
+    @Test
+    public void testBuildSeedItemsSkipsWrongMediaType() throws Exception {
+        java.lang.reflect.Field cacheField = HomeController.class.getDeclaredField("searchCache");
+        cacheField.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, JsonNode> cache =
+                (java.util.Map<String, JsonNode>) cacheField.get(controller);
+        cache.clear();
+
+        ObjectNode item = Json.newObject();
+        item.put("type", "tv");
+        item.put("title", "Batman");
+        item.put("overview", "hero");
+
+        com.fasterxml.jackson.databind.node.ArrayNode resultsArray = Json.newArray();
+        resultsArray.add(item);
+
+        ObjectNode cacheNode = Json.newObject();
+        cacheNode.set("results", resultsArray);
+        cache.put("entry", cacheNode);
+
+        Method method = HomeController.class.getDeclaredMethod(
+                "buildSeedItems", String.class, String.class);
+        method.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        List<ObjectNode> results =
+                (List<ObjectNode>) method.invoke(controller, "movie", "batman");
+
+        assertTrue(results.isEmpty());
+    }
+
+    @Test
+    public void testBuildSeedItemsSkipsWrongQuery() throws Exception {
+        java.lang.reflect.Field cacheField = HomeController.class.getDeclaredField("searchCache");
+        cacheField.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, JsonNode> cache =
+                (java.util.Map<String, JsonNode>) cacheField.get(controller);
+        cache.clear();
+
+        ObjectNode item = Json.newObject();
+        item.put("type", "movie");
+        item.put("title", "Superman");
+        item.put("overview", "hero");
+
+        com.fasterxml.jackson.databind.node.ArrayNode resultsArray = Json.newArray();
+        resultsArray.add(item);
+
+        ObjectNode cacheNode = Json.newObject();
+        cacheNode.set("results", resultsArray);
+        cache.put("entry", cacheNode);
+
+        Method method = HomeController.class.getDeclaredMethod(
+                "buildSeedItems", String.class, String.class);
+        method.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        List<ObjectNode> results =
+                (List<ObjectNode>) method.invoke(controller, "movie", "batman");
+
+        assertTrue(results.isEmpty());
+    }
+
+    @Test
+    public void testBuildSeedItemsAddsMatchingItem() throws Exception {
+        java.lang.reflect.Field cacheField = HomeController.class.getDeclaredField("searchCache");
+        cacheField.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, JsonNode> cache =
+                (java.util.Map<String, JsonNode>) cacheField.get(controller);
+        cache.clear();
+
+        ObjectNode item = Json.newObject();
+        item.put("type", "movie");
+        item.put("title", "Batman Begins");
+        item.put("overview", "batman movie");
+
+        com.fasterxml.jackson.databind.node.ArrayNode resultsArray = Json.newArray();
+        resultsArray.add(item);
+
+        ObjectNode cacheNode = Json.newObject();
+        cacheNode.set("results", resultsArray);
+        cache.put("entry", cacheNode);
+
+        Method method = HomeController.class.getDeclaredMethod(
+                "buildSeedItems", String.class, String.class);
+        method.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        List<ObjectNode> results =
+                (List<ObjectNode>) method.invoke(controller, "movie", "batman");
+
+        assertEquals(1, results.size());
+        assertEquals("Batman Begins", results.get(0).path("title").asText());
+    }
+
+    @Test
+    public void testMatchesMediaTypeReturnsTrueForNullBlankAndAll() throws Exception {
+        Method method = HomeController.class.getDeclaredMethod(
+                "matchesMediaType", JsonNode.class, String.class);
+        method.setAccessible(true);
+
+        ObjectNode item = Json.newObject();
+        item.put("type", "movie");
+
+        assertTrue((Boolean) method.invoke(controller, item, (String) null));
+        assertTrue((Boolean) method.invoke(controller, item, ""));
+        assertTrue((Boolean) method.invoke(controller, item, "all"));
+    }
+
+    @Test
+    public void testMatchesQueryReturnsTrueForNullAndBlank() throws Exception {
+        Method method = HomeController.class.getDeclaredMethod(
+                "matchesQuery", JsonNode.class, String.class);
+        method.setAccessible(true);
+
+        ObjectNode item = Json.newObject();
+        item.put("title", "Batman Begins");
+
+        assertTrue((Boolean) method.invoke(controller, item, (String) null));
+        assertTrue((Boolean) method.invoke(controller, item, ""));
+    }
+
+    @Test
+    public void testMatchesQueryReturnsFalseWhenNoFieldContainsQuery() throws Exception {
+        Method method = HomeController.class.getDeclaredMethod(
+                "matchesQuery", JsonNode.class, String.class);
+        method.setAccessible(true);
+
+        ObjectNode item = Json.newObject();
+        item.put("title", "Superman");
+        item.put("name", "Clark");
+        item.put("overview", "hero story");
+
+        assertFalse((Boolean) method.invoke(controller, item, "batman"));
+    }
+
 
 }
