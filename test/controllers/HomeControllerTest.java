@@ -184,21 +184,12 @@ public class HomeControllerTest {
         when(tmdbService.getPersonDetails(anyString(), anyString(), eq("2")))
                 .thenReturn(personDetailsJson);
 
-//        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/1/stats");
-//        Http.Request request = requestBuilder.build();
-//
         List<MovieOrTVShow> items = new ArrayList<>();
         items.add(new MovieOrTVShow("1", "Movie A", 10.0, 8.0, 100));
         items.add(new MovieOrTVShow("2", "Movie B", 20.0, 7.0, 200));
         models.PersonStats mockStats = new models.PersonStats(items);
         mockStats.setPersonDetails("Test Person", "/test.jpg", "Acting", 2, "1990-05-15", "Los Angeles, USA");
-//        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
-//        Result result;
-//        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
-//            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
-//            CompletionStage<Result> resultStage = controller.personStats("1", request);
-//            result = resultStage.toCompletableFuture().join();
-//        }
+
         HomeController localController = controllerWithSupervisorReply(mockStats);
         Http.Request request = Helpers.fakeRequest(GET, "/person/2/stats").build();
         Result result = localController.personStats("2", request).toCompletableFuture().join();
@@ -296,20 +287,11 @@ public class HomeControllerTest {
         when(tmdbService.getPersonDetails(anyString(), anyString(), eq("2")))
                 .thenReturn(personDetailsJson);
 
-        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/2/stats");
         Http.Request request = Helpers.fakeRequest(GET, "/person/2/stats").build();
-        //Http.Request request = requestBuilder.build();
 
         models.PersonStats mockStats = new models.PersonStats(new ArrayList<>());
         mockStats.setPersonDetails("Scarlett Johansson", "/scarlett.jpg", "Acting", 1, "1984-11-22", "New York City, USA");
 
-//        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
-//        Result result;
-//        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
-//            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
-//            CompletionStage<Result> resultStage = controller.personStats("2", request);
-//            result = resultStage.toCompletableFuture().join();
-//        }
         HomeController localController = controllerWithSupervisorReply(mockStats);
         Result result = localController.personStats("2", request).toCompletableFuture().join();
 
@@ -357,21 +339,13 @@ public class HomeControllerTest {
         when(tmdbService.getPersonDetails(anyString(), anyString(), eq("3")))
                 .thenReturn(personDetailsJson);
 
-        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/3/stats");
-        Http.Request request = requestBuilder.build();
+        Http.Request request = Helpers.fakeRequest(GET, "/person/3/stats").build();
 
         List<MovieOrTVShow> items = new ArrayList<>();
         items.add(new MovieOrTVShow("1", "Inception", 50.0, 8.8, 5000, "2010"));
         models.PersonStats mockStats = new models.PersonStats(items);
         mockStats.setPersonDetails("Leonardo DiCaprio", "/leo.jpg", "Acting", 2, "1974-11-11", "Los Angeles, USA");
 
-//        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
-//        Result result;
-//        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
-//            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
-//            CompletionStage<Result> resultStage = controller.personStats("3", request);
-//            result = resultStage.toCompletableFuture().join();
-//        }
         HomeController localController = controllerWithSupervisorReply(mockStats);
         Result result = localController.personStats("3", request).toCompletableFuture().join();
         assertEquals(OK, result.status());
@@ -414,21 +388,13 @@ public class HomeControllerTest {
         when(tmdbService.getPersonDetails(anyString(), anyString(), eq("4")))
                 .thenReturn(personDetailsJson);
 
-        Http.RequestBuilder requestBuilder = Helpers.fakeRequest(GET, "/person/4/stats");
-        Http.Request request = requestBuilder.build();
+        Http.Request request = Helpers.fakeRequest(GET, "/person/4/stats").build();
 
         List<MovieOrTVShow> items = new ArrayList<>();
         items.add(new MovieOrTVShow("1", "Breaking Bad", 80.0, 9.5, 10000, "2008"));
         models.PersonStats mockStats = new models.PersonStats(items);
         mockStats.setPersonDetails("Bryan Cranston", "/bryan.jpg", "Acting", 2, "1956-03-07", "Canoga Park, USA");
 
-//        CompletionStage<Object> future = CompletableFuture.completedFuture(mockStats);
-//        Result result;
-//        try (MockedStatic<Patterns> mockedPatterns = Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
-//            mockedPatterns.when(() -> Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))).thenReturn(future);
-//            CompletionStage<Result> resultStage = controller.personStats("4", request);
-//            result = resultStage.toCompletableFuture().join();
-//        }
         HomeController localController = controllerWithSupervisorReply(mockStats);
         Result result = localController.personStats("4", request).toCompletableFuture().join();
         assertEquals(OK, result.status());
@@ -617,58 +583,6 @@ public class HomeControllerTest {
     }
 
     /**
-     * Tests successful movie search flow and session header write.
-     *
-     * @author Mahmoud Saghir
-     */
-//    @Test
-//    public void testSearchMovieSuccessAndSessionHeader() throws Exception {
-//        ObjectNode item = Json.newObject();
-//        item.put("id", 100);
-//        item.put("title", "The Matrix");
-//        item.put("original_language", "en");
-//        item.put("release_date", "1999-03-31");
-//        item.put("popularity", 9.9);
-//        item.put("vote_average", 8.7);
-//        item.set("genre_ids", Json.newArray().add(28));
-//
-//        ObjectNode root = Json.newObject();
-//        root.put("total_results", 1);
-//        root.set("results", Json.newArray().add(item));
-//
-//        when(tmdbService.search(anyString(), anyString(), eq("matrix"), eq("movie"), 1)).thenReturn(root);
-//
-//        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
-//                .bodyForm(java.util.Map.of("query", "matrix", "category", "movie"))
-//                .build();
-//
-//        Result result = controller.search(request).toCompletableFuture().join();
-//        assertEquals(OK, result.status());
-//        assertTrue(contentAsString(result).contains("The Matrix"));
-//        assertTrue(contentAsString(result).contains("Total results: 1"));
-//    }
-//
-//    /**
-//     * Tests search exception path in async fetch.
-//     *
-//     * @author Mahmoud Saghir
-//     */
-//    @Test
-//    public void testSearchApiFailurePath() throws Exception {
-//        when(tmdbService.search(anyString(), anyString(), eq("bad"), eq("tv"), 1))
-//                .thenThrow(new RuntimeException("API down"));
-//
-//        Http.Request request = Helpers.fakeRequest(POST, "/flicklytics")
-//                .bodyForm(java.util.Map.of("query", "bad", "category", "tv"))
-//                .session("searchHistory", "a,b,c,d,e,f,g,h,i,j,k")
-//                .build();
-//
-//        Result result = controller.search(request).toCompletableFuture().join();
-//        assertEquals(OK, result.status());
-//        assertTrue(contentAsString(result).contains("Welcome to FlickLytics"));
-//    }
-
-    /**
      * Tests private parseMediaItem branches via reflection.
      *
      * @author Syed Shahab Shah
@@ -785,7 +699,6 @@ public class HomeControllerTest {
         assertTrue(withSlash.movie(1L).url().contains("/movie/1"));
         assertTrue(withSlash.tv(2L).url().contains("/tv/2"));
         assertEquals("/", withSlash.redirectToFlicklytics().url());
-        //assertTrue(withSlash.search().url().contains("flicklytics"));
         assertTrue(withSlash.ws().url().contains("ws/search"));
         assertTrue(withSlash.personStats("12").url().contains("/person/12/stats"));
         assertTrue(withSlash.reviews("movie", 10L).url().contains("/reviews/movie/10"));
@@ -838,7 +751,6 @@ public class HomeControllerTest {
         JavaScriptReverseRoute r1 = jsWithSlash.index();
         JavaScriptReverseRoute r2 = jsWithSlash.movie();
         JavaScriptReverseRoute r3 = jsWithSlash.tv();
-        //JavaScriptReverseRoute r4 = jsWithSlash.search();
         JavaScriptReverseRoute r4 = jsWithSlash.ws();
         JavaScriptReverseRoute r5 = jsWithSlash.redirectToFlicklytics();
         JavaScriptReverseRoute r6 = jsWithSlash.personStats();
@@ -877,5 +789,715 @@ public class HomeControllerTest {
         assertNotNull(jsAssetsWithSlash.versioned());
         assertNotNull(jsAssetsWithoutSlash.versioned());
     }
-}
+    /**
+     * Covers controllers_HomeController_movieWs10_route and invoker (LINE:29).
+     * Tests both prefix branches (with and without slash) to initialize the
+     * lazy val invoker which is the red block in the generated router.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testReverseHomeControllerMovieWsRoute() {
+        ReverseHomeController withSlash = new ReverseHomeController(new AbstractFunction0<String>() {
+            @Override
+            public String apply() {
+                return "/";
+            }
+        });
 
+        ReverseHomeController withoutSlash = new ReverseHomeController(new AbstractFunction0<String>() {
+            @Override
+            public String apply() {
+                return "/api";
+            }
+        });
+
+        // Initializes controllers_HomeController_movieWs10_route lazy val
+        Call movieWsWithSlash    = withSlash.movieWs();
+        // Initializes the invoker lazy val (the red block) via defaultPrefix branch
+        Call movieWsWithoutSlash = withoutSlash.movieWs();
+
+        assertNotNull(movieWsWithSlash);
+        assertNotNull(movieWsWithoutSlash);
+        assertTrue(movieWsWithSlash.url().contains("ws/movie"));
+        assertTrue(movieWsWithoutSlash.url().contains("/api"));
+        assertTrue(movieWsWithoutSlash.url().contains("ws/movie"));
+    }
+
+    /**
+     * Covers controllers_HomeController_tvWs11_route and invoker (LINE:30).
+     * Tests both prefix branches (with and without slash) to initialize the
+     * lazy val invoker which is the red block in the generated router.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testReverseHomeControllerTvWsRoute() {
+        ReverseHomeController withSlash = new ReverseHomeController(new AbstractFunction0<String>() {
+            @Override
+            public String apply() {
+                return "/";
+            }
+        });
+
+        ReverseHomeController withoutSlash = new ReverseHomeController(new AbstractFunction0<String>() {
+            @Override
+            public String apply() {
+                return "/api";
+            }
+        });
+
+        // Initializes controllers_HomeController_tvWs11_route lazy val
+        Call tvWsWithSlash    = withSlash.tvWs();
+        // Initializes the invoker lazy val (the red block) via defaultPrefix branch
+        Call tvWsWithoutSlash = withoutSlash.tvWs();
+
+        assertNotNull(tvWsWithSlash);
+        assertNotNull(tvWsWithoutSlash);
+        assertTrue(tvWsWithSlash.url().contains("ws/tv"));
+        assertTrue(tvWsWithoutSlash.url().contains("/api"));
+        assertTrue(tvWsWithoutSlash.url().contains("ws/tv"));
+    }
+
+    /**
+     * Covers the JavaScript reverse route wrappers for movieWs and tvWs.
+     * Both withSlash and withoutSlash variants force the JS invoker
+     * lazy vals to initialize, clearing the remaining red blocks.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testJavaScriptReverseMovieWsAndTvWsCoverage() {
+        controllers.javascript.ReverseHomeController jsWithSlash =
+                new controllers.javascript.ReverseHomeController(new AbstractFunction0<String>() {
+                    @Override
+                    public String apply() {
+                        return "/";
+                    }
+                });
+
+        controllers.javascript.ReverseHomeController jsWithoutSlash =
+                new controllers.javascript.ReverseHomeController(new AbstractFunction0<String>() {
+                    @Override
+                    public String apply() {
+                        return "/api";
+                    }
+                });
+
+        JavaScriptReverseRoute movieWsSlash    = jsWithSlash.movieWs();
+        JavaScriptReverseRoute movieWsNoSlash  = jsWithoutSlash.movieWs();
+        JavaScriptReverseRoute tvWsSlash       = jsWithSlash.tvWs();
+        JavaScriptReverseRoute tvWsNoSlash     = jsWithoutSlash.tvWs();
+
+        assertNotNull(movieWsSlash);
+        assertNotNull(movieWsNoSlash);
+        assertNotNull(tvWsSlash);
+        assertNotNull(tvWsNoSlash);
+    }
+
+    /**
+     * Tests that buildMediaFlow returns a non-null Flow for the "movie" media type.
+     * <p>
+     * The method under test (buildMediaFlow) wires together six components:
+     * <ol>
+     *   <li>An actorRef-backed Source (via Source.actorRef / preMaterialize)</li>
+     *   <li>A child MediaDetailsActor created by asking the SupervisorActor</li>
+     *   <li>An initial seed batch sent to that child actor (StartSession)</li>
+     *   <li>A subscription to the live broadcast hub (mediaStreamService.liveSource)</li>
+     *   <li>An inbound Sink that forwards browser messages as ChangeSearch commands</li>
+     *   <li>A combined Flow assembled with Flow.fromSinkAndSource</li>
+     * </ol>
+     * Because the method is private it is invoked via reflection.  A stub
+     * SupervisorActor is used so the ask in step 2 resolves immediately with a
+     * real ActorRef, allowing every branch of the method to execute without
+     * blocking or throwing.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testBuildMediaFlowReturnsNonNullFlowForMovie() throws Exception {
+        // Build a controller whose supervisorActor stub replies with a real ActorRef
+        // so the Patterns.ask inside buildMediaFlow resolves immediately.
+        Application application = new GuiceApplicationBuilder().build();
+        Helpers.start(application);
+
+        ActorSystem classicSystem = application.injector().instanceOf(ActorSystem.class);
+
+        // The stub supervisor replies to any message with itself as the ActorRef,
+        // satisfying the .thenApply(ActorRef.class::cast) cast inside buildMediaFlow.
+        ActorRef stubSupervisor = classicSystem.actorOf(
+                org.apache.pekko.actor.Props.create(
+                        org.apache.pekko.actor.AbstractActor.class,
+                        () -> new org.apache.pekko.actor.AbstractActor() {
+                            @Override
+                            public Receive createReceive() {
+                                return receiveBuilder()
+                                        .matchAny(msg -> getSender().tell(getSelf(), getSelf()))
+                                        .build();
+                            }
+                        }
+                )
+        );
+
+        Config config = mock(Config.class);
+        when(config.getString("tmdb.api.key")).thenReturn("fake-key");
+        when(config.getString("tmdb.api.url")).thenReturn("fake-url");
+        when(tmdbService.loadTargetLanguageConstant(anyString(), anyString())).thenReturn(10);
+
+        Materializer materializer = application.injector().instanceOf(Materializer.class);
+
+        HomeController localController = new HomeController(
+                application.injector().instanceOf(FormFactory.class),
+                application.injector().instanceOf(MessagesApi.class),
+                application.injector().instanceOf(ClassLoaderExecutionContext.class),
+                config,
+                mock(GenreService.class),
+                tmdbService,
+                mediaDetailsService,
+                reviewsService,
+                classicSystem,
+                stubSupervisor,
+                materializer,
+                application.injector().instanceOf(MediaStreamService.class)
+        );
+
+        // Invoke the private buildMediaFlow method via reflection
+        Method buildMediaFlow = HomeController.class
+                .getDeclaredMethod("buildMediaFlow", String.class);
+        buildMediaFlow.setAccessible(true);
+
+        Object flow = buildMediaFlow.invoke(localController, "movie");
+
+        assertNotNull("buildMediaFlow(\"movie\") must return a non-null Flow", flow);
+    }
+
+    /**
+     * Tests that buildMediaFlow returns a non-null Flow for the "tv" media type.
+     * <p>
+     * Mirrors {@link #testBuildMediaFlowReturnsNonNullFlowForMovie()} but exercises
+     * the "tv" branch so that any mediaType-specific logic (seed filtering, actor
+     * naming, etc.) is also covered.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testBuildMediaFlowReturnsNonNullFlowForTv() throws Exception {
+        Application application = new GuiceApplicationBuilder().build();
+        Helpers.start(application);
+
+        ActorSystem classicSystem = application.injector().instanceOf(ActorSystem.class);
+
+        ActorRef stubSupervisor = classicSystem.actorOf(
+                org.apache.pekko.actor.Props.create(
+                        org.apache.pekko.actor.AbstractActor.class,
+                        () -> new org.apache.pekko.actor.AbstractActor() {
+                            @Override
+                            public Receive createReceive() {
+                                return receiveBuilder()
+                                        .matchAny(msg -> getSender().tell(getSelf(), getSelf()))
+                                        .build();
+                            }
+                        }
+                )
+        );
+
+        Config config = mock(Config.class);
+        when(config.getString("tmdb.api.key")).thenReturn("fake-key");
+        when(config.getString("tmdb.api.url")).thenReturn("fake-url");
+        when(tmdbService.loadTargetLanguageConstant(anyString(), anyString())).thenReturn(10);
+
+        Materializer materializer = application.injector().instanceOf(Materializer.class);
+
+        HomeController localController = new HomeController(
+                application.injector().instanceOf(FormFactory.class),
+                application.injector().instanceOf(MessagesApi.class),
+                application.injector().instanceOf(ClassLoaderExecutionContext.class),
+                config,
+                mock(GenreService.class),
+                tmdbService,
+                mediaDetailsService,
+                reviewsService,
+                classicSystem,
+                stubSupervisor,
+                materializer,
+                application.injector().instanceOf(MediaStreamService.class)
+        );
+
+        Method buildMediaFlow = HomeController.class
+                .getDeclaredMethod("buildMediaFlow", String.class);
+        buildMediaFlow.setAccessible(true);
+
+        Object flow = buildMediaFlow.invoke(localController, "tv");
+
+        assertNotNull("buildMediaFlow(\"tv\") must return a non-null Flow", flow);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // RED-LINE COVERAGE: financialPerformance — financialActor == null branch
+    // Lines 249-254: when the controller is constructed via the 12-arg
+    // convenience constructor, financialActor is null.  The method must fall
+    // back to building FinancialPerformance directly and render the page.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Covers the {@code financialActor == null} fallback branch (lines 249-254)
+     * inside {@code financialPerformance()}.
+     * <p>
+     * The 12-argument convenience constructor passes {@code null} for the
+     * {@code financialActor} parameter, so the {@code if (financialActor == null)}
+     * guard is {@code true} and the method must construct a
+     * {@link models.FinancialPerformance} directly from budget/revenue without
+     * delegating to an actor.  The rendered page must still show
+     * "Financial Performance".
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testFinancialPerformanceFallbackWhenActorIsNull() throws Exception {
+        // Arrange: return valid budget/revenue data from the service
+        JsonNode mockDetails = Json.newObject()
+                .put("budget", 200000L)
+                .put("revenue", 800000L);
+
+        when(tmdbService.getDetails(anyString(), anyString(), eq("movie"), eq(42L)))
+                .thenReturn(mockDetails);
+
+        // The setUp() controller is built via the 12-arg constructor → financialActor is null
+        Http.Request request = Helpers.fakeRequest(GET, "/flicklytics/financial-performance/42").build();
+
+        CompletionStage<Result> resultStage = controller.financialPerformance(request, 42);
+        Result result = resultStage.toCompletableFuture().join();
+
+        assertEquals(OK, result.status());
+        assertTrue(contentAsString(result).contains("Financial Performance"));
+    }
+
+    /**
+     * Covers the {@code financialActor == null} fallback together with a zero
+     * budget and zero revenue to exercise the {@code FinancialPerformance(0, 0)}
+     * edge case in the same branch.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testFinancialPerformanceFallbackWithZeroBudgetAndRevenue() throws Exception {
+        JsonNode mockDetails = Json.newObject()
+                .put("budget", 0L)
+                .put("revenue", 0L);
+
+        when(tmdbService.getDetails(anyString(), anyString(), eq("movie"), eq(55L)))
+                .thenReturn(mockDetails);
+
+        Http.Request request = Helpers.fakeRequest(GET, "/flicklytics/financial-performance/55").build();
+
+        CompletionStage<Result> resultStage = controller.financialPerformance(request, 55);
+        Result result = resultStage.toCompletableFuture().join();
+
+        assertEquals(OK, result.status());
+        assertTrue(contentAsString(result).contains("Financial Performance"));
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // RED-LINE COVERAGE: globalDiversity — catch block (lines 388-390)
+    // Patterns.ask throws synchronously → catch fires → internalServerError
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Covers the {@code catch (Exception e)} block in {@code globalDiversity()}
+     * (lines 388-390).
+     * <p>
+     * {@code Patterns.ask} is mocked to throw a {@link RuntimeException}
+     * synchronously, which is caught inside the try-block and returned as an
+     * {@code internalServerError("Failed to fetch TMDb data")}.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testGlobalDiversityCatchBlockOnAskFailure() throws Exception {
+        Http.Request request = Helpers.fakeRequest(GET, "/flicklytics/global-diversity/movie/1").build();
+
+        try (MockedStatic<Patterns> mockedPatterns =
+                     Mockito.mockStatic(org.apache.pekko.pattern.Patterns.class)) {
+
+            mockedPatterns.when(() ->
+                    Patterns.ask(any(ActorRef.class), any(), any(java.time.Duration.class))
+            ).thenThrow(new RuntimeException("actor unavailable"));
+
+            CompletionStage<Result> resultStage = controller.globalDiversity(request, "movie", 1);
+            Result result = resultStage.toCompletableFuture().join();
+
+            assertEquals(INTERNAL_SERVER_ERROR, result.status());
+            assertTrue(contentAsString(result).contains("Failed to fetch TMDb data"));
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // COVERAGE: buildSeedItems — non-array results guard (line 653)
+    // A cache entry whose "results" field is not an ArrayNode must be skipped.
+    // (ConcurrentHashMap forbids null values, so we test the next early-continue
+    //  branch: !resultArray.isArray())
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Covers the {@code if (!resultArray.isArray()) { continue; }} guard (line 653)
+     * inside {@code buildSeedItems()}.
+     * <p>
+     * {@code ConcurrentHashMap} does not permit {@code null} values, so the null-node
+     * guard on line 649 cannot be triggered via the map directly.  Instead, we inject
+     * a cache entry whose {@code "results"} field is a plain {@code TextNode} rather
+     * than an {@code ArrayNode}, which causes {@code resultArray.isArray()} to return
+     * {@code false} and exercises the very next defensive {@code continue}.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testBuildSeedItemsSkipsNullCacheEntry() throws Exception {
+        Application application = new GuiceApplicationBuilder().build();
+        Helpers.start(application);
+
+        ActorSystem classicSystem = application.injector().instanceOf(ActorSystem.class);
+
+        // Stub supervisor replies with itself so buildMediaFlow's ask resolves
+        ActorRef stubSupervisor = classicSystem.actorOf(
+                org.apache.pekko.actor.Props.create(
+                        org.apache.pekko.actor.AbstractActor.class,
+                        () -> new org.apache.pekko.actor.AbstractActor() {
+                            @Override
+                            public Receive createReceive() {
+                                return receiveBuilder()
+                                        .matchAny(msg -> getSender().tell(getSelf(), getSelf()))
+                                        .build();
+                            }
+                        }
+                )
+        );
+
+        Config config = mock(Config.class);
+        when(config.getString("tmdb.api.key")).thenReturn("fake-key");
+        when(config.getString("tmdb.api.url")).thenReturn("fake-url");
+        when(tmdbService.loadTargetLanguageConstant(anyString(), anyString())).thenReturn(10);
+
+        Materializer materializer = application.injector().instanceOf(Materializer.class);
+
+        HomeController localController = new HomeController(
+                application.injector().instanceOf(FormFactory.class),
+                application.injector().instanceOf(MessagesApi.class),
+                application.injector().instanceOf(ClassLoaderExecutionContext.class),
+                config,
+                mock(GenreService.class),
+                tmdbService,
+                mediaDetailsService,
+                reviewsService,
+                classicSystem,
+                stubSupervisor,
+                materializer,
+                application.injector().instanceOf(MediaStreamService.class)
+        );
+
+        // Inject a cache entry whose "results" is not an array to cover the isArray() guard
+        java.lang.reflect.Field cacheField =
+                HomeController.class.getDeclaredField("searchCache");
+        cacheField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, com.fasterxml.jackson.databind.JsonNode> cache =
+                (java.util.Map<String, com.fasterxml.jackson.databind.JsonNode>)
+                        cacheField.get(localController);
+        // ConcurrentHashMap does not permit null values; use a node with a non-array
+        // "results" field instead to cover the isArray() false-branch (line 653).
+        com.fasterxml.jackson.databind.node.ObjectNode badNode = Json.newObject();
+        badNode.put("results", "not-an-array");
+        cache.put("bad-results-key", badNode);
+
+        // buildMediaFlow → buildSeedItems must silently skip the bad entry
+        Method buildMediaFlow = HomeController.class
+                .getDeclaredMethod("buildMediaFlow", String.class);
+        buildMediaFlow.setAccessible(true);
+
+        Object flow = buildMediaFlow.invoke(localController, "movie");
+        assertNotNull("buildMediaFlow must return non-null Flow when cache has non-array results node", flow);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // RED-LINE COVERAGE: buildSeedItems — !matchesMediaType continue (line 663)
+    // An item whose media type does NOT match the requested type must be skipped.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Covers the {@code if (!matchesMediaType(item, mediaType)) { continue; }}
+     * branch (line 663) inside {@code buildSeedItems()}.
+     * <p>
+     * We populate the searchCache with a node that holds a "results" array
+     * containing one "tv" item.  When {@code buildSeedItems} is called with
+     * mediaType {@code "movie"} the item fails the type check and the
+     * {@code continue} on line 663 is hit.  The returned seed list must be empty.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testBuildSeedItemsSkipsItemWithNonMatchingMediaType() throws Exception {
+        Application application = new GuiceApplicationBuilder().build();
+        Helpers.start(application);
+
+        ActorSystem classicSystem = application.injector().instanceOf(ActorSystem.class);
+
+        ActorRef stubSupervisor = classicSystem.actorOf(
+                org.apache.pekko.actor.Props.create(
+                        org.apache.pekko.actor.AbstractActor.class,
+                        () -> new org.apache.pekko.actor.AbstractActor() {
+                            @Override
+                            public Receive createReceive() {
+                                return receiveBuilder()
+                                        .matchAny(msg -> getSender().tell(getSelf(), getSelf()))
+                                        .build();
+                            }
+                        }
+                )
+        );
+
+        Config config = mock(Config.class);
+        when(config.getString("tmdb.api.key")).thenReturn("fake-key");
+        when(config.getString("tmdb.api.url")).thenReturn("fake-url");
+        when(tmdbService.loadTargetLanguageConstant(anyString(), anyString())).thenReturn(10);
+
+        Materializer materializer = application.injector().instanceOf(Materializer.class);
+
+        HomeController localController = new HomeController(
+                application.injector().instanceOf(FormFactory.class),
+                application.injector().instanceOf(MessagesApi.class),
+                application.injector().instanceOf(ClassLoaderExecutionContext.class),
+                config,
+                mock(GenreService.class),
+                tmdbService,
+                mediaDetailsService,
+                reviewsService,
+                classicSystem,
+                stubSupervisor,
+                materializer,
+                application.injector().instanceOf(MediaStreamService.class)
+        );
+
+        // Build a cache entry whose single result item has type "tv"
+        com.fasterxml.jackson.databind.node.ObjectNode tvItem = Json.newObject();
+        tvItem.put("type", "tv");
+        tvItem.put("link", "/tv/999");
+        tvItem.put("title", "A TV Show");
+
+        com.fasterxml.jackson.databind.node.ObjectNode cacheNode = Json.newObject();
+        cacheNode.set("results", Json.newArray().add(tvItem));
+
+        java.lang.reflect.Field cacheField =
+                HomeController.class.getDeclaredField("searchCache");
+        cacheField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, com.fasterxml.jackson.databind.JsonNode> cache =
+                (java.util.Map<String, com.fasterxml.jackson.databind.JsonNode>)
+                        cacheField.get(localController);
+        cache.put("tv:999", cacheNode);
+
+        // Invoke buildSeedItems("movie", "") — the tv item must be skipped (line 663)
+        Method buildSeedItems = HomeController.class
+                .getDeclaredMethod("buildSeedItems", String.class, String.class);
+        buildSeedItems.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        java.util.List<com.fasterxml.jackson.databind.node.ObjectNode> seeds =
+                (java.util.List<com.fasterxml.jackson.databind.node.ObjectNode>)
+                        buildSeedItems.invoke(localController, "movie", "");
+
+        assertTrue("Seed list must be empty when no item matches the requested media type",
+                seeds.isEmpty());
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // YELLOW-LINE COVERAGE: parseMediaItem — dateStr null branch (line 347)
+    // The ternary  (dateStr != null && dateStr.length() >= 4) must be exercised
+    // with a non-null dateStr that is shorter than 4 characters so the false
+    // branch returns an empty String instead of a substring.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Covers the false branch of the {@code dateStr.length() >= 4} guard on
+     * line 347 inside {@code parseMediaItem()}.
+     * <p>
+     * When {@code release_date} exists but is shorter than 4 characters (e.g.
+     * {@code "20"}) the conditional must evaluate to {@code false} and
+     * {@code year} must be set to the empty string rather than a substring.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testParseMediaItemWithShortDateReturnsEmptyYear() throws Exception {
+        Method m = HomeController.class.getDeclaredMethod("parseMediaItem",
+                com.fasterxml.jackson.databind.JsonNode.class);
+        m.setAccessible(true);
+
+        // release_date present but only 2 characters long — length() >= 4 is false
+        com.fasterxml.jackson.databind.JsonNode node = Json.newObject()
+                .put("id", 7)
+                .put("title", "Short Date Movie")
+                .put("popularity", 1.0)
+                .put("vote_average", 5.0)
+                .put("vote_count", 10)
+                .put("release_date", "20");   // length 2 < 4
+
+        MovieOrTVShow result = (MovieOrTVShow) m.invoke(controller, node);
+
+        assertEquals("Short Date Movie", result.getTitle());
+        assertEquals("Year must be empty when dateStr is shorter than 4 chars",
+                "", result.getYear());
+    }
+
+    /**
+     * Covers the branch where both {@code release_date} and
+     * {@code first_air_date} are absent, so {@code dateStr} is {@code ""}
+     * (empty string) and the {@code dateStr.length() >= 4} guard is false,
+     * returning an empty year. This is a complementary path to
+     * {@link #testParseMediaItemWithShortDateReturnsEmptyYear()}.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testParseMediaItemWithEmptyDateStringReturnsEmptyYear() throws Exception {
+        Method m = HomeController.class.getDeclaredMethod("parseMediaItem",
+                com.fasterxml.jackson.databind.JsonNode.class);
+        m.setAccessible(true);
+
+        // Neither release_date nor first_air_date present → dateStr = ""
+        com.fasterxml.jackson.databind.JsonNode node = Json.newObject()
+                .put("id", 8)
+                .put("title", "No Date Movie")
+                .put("popularity", 2.0)
+                .put("vote_average", 6.0)
+                .put("vote_count", 20);
+
+        MovieOrTVShow result = (MovieOrTVShow) m.invoke(controller, node);
+
+        assertEquals("No Date Movie", result.getTitle());
+        assertEquals("", result.getYear());
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // YELLOW-LINE COVERAGE: matchesMediaType — link-based fallback (lines 685-690)
+    // When item.path("type") is blank the method falls through to the link check.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Covers the link-based fallback branch in {@code matchesMediaType()}
+     * (lines 689-690) where {@code item.path("type")} is blank so the method
+     * must fall through to {@code link.startsWith("/" + mediaType + "/")}.
+     * <p>
+     * Case A — link matches: expects {@code true}.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testMatchesMediaTypeUsesLinkWhenTypeFieldIsBlank_Match() throws Exception {
+        Method m = HomeController.class.getDeclaredMethod(
+                "matchesMediaType",
+                com.fasterxml.jackson.databind.JsonNode.class, String.class);
+        m.setAccessible(true);
+
+        // No "type" field → type.isBlank() is true → fall through to link check
+        com.fasterxml.jackson.databind.node.ObjectNode item = Json.newObject();
+        item.put("link", "/movie/123");   // link starts with "/movie/"
+
+        boolean result = (boolean) m.invoke(controller, item, "movie");
+        assertTrue("Item with link '/movie/123' must match mediaType 'movie'", result);
+    }
+
+    /**
+     * Covers the link-based fallback branch in {@code matchesMediaType()}
+     * (lines 689-690) where the link does NOT start with the requested prefix.
+     * <p>
+     * Case B — link does not match: expects {@code false}.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testMatchesMediaTypeUsesLinkWhenTypeFieldIsBlank_NoMatch() throws Exception {
+        Method m = HomeController.class.getDeclaredMethod(
+                "matchesMediaType",
+                com.fasterxml.jackson.databind.JsonNode.class, String.class);
+        m.setAccessible(true);
+
+        com.fasterxml.jackson.databind.node.ObjectNode item = Json.newObject();
+        item.put("link", "/tv/456");   // link starts with "/tv/" not "/movie/"
+
+        boolean result = (boolean) m.invoke(controller, item, "movie");
+        assertFalse("Item with link '/tv/456' must NOT match mediaType 'movie'", result);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // YELLOW-LINE COVERAGE: matchesQuery — partial short-circuit (line 704)
+    // All three sub-expressions must be exercised to saturate the || chain.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Covers the {@code name.contains(q)} arm of the {@code return} on line 704
+     * inside {@code matchesQuery()}, where {@code title} does NOT match but
+     * {@code name} DOES match.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testMatchesQueryMatchesOnNameField() throws Exception {
+        Method m = HomeController.class.getDeclaredMethod(
+                "matchesQuery",
+                com.fasterxml.jackson.databind.JsonNode.class, String.class);
+        m.setAccessible(true);
+
+        com.fasterxml.jackson.databind.node.ObjectNode item = Json.newObject();
+        item.put("title", "unrelated");
+        item.put("name", "Breaking Bad");
+        item.put("overview", "unrelated overview");
+
+        boolean result = (boolean) m.invoke(controller, item, "breaking");
+        assertTrue("matchesQuery must return true when the 'name' field contains the query", result);
+    }
+
+    /**
+     * Covers the {@code overview.contains(q)} arm of the {@code return} on
+     * line 704 inside {@code matchesQuery()}, where neither {@code title} nor
+     * {@code name} match but {@code overview} DOES match.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testMatchesQueryMatchesOnOverviewField() throws Exception {
+        Method m = HomeController.class.getDeclaredMethod(
+                "matchesQuery",
+                com.fasterxml.jackson.databind.JsonNode.class, String.class);
+        m.setAccessible(true);
+
+        com.fasterxml.jackson.databind.node.ObjectNode item = Json.newObject();
+        item.put("title", "some title");
+        item.put("name", "some name");
+        item.put("overview", "A thrilling story about espionage");
+
+        boolean result = (boolean) m.invoke(controller, item, "espionage");
+        assertTrue("matchesQuery must return true when the 'overview' field contains the query", result);
+    }
+
+    /**
+     * Covers the all-false path of line 704 in {@code matchesQuery()} where
+     * none of the three fields match, so the method returns {@code false}.
+     *
+     * @author Zenghui WU
+     */
+    @Test
+    public void testMatchesQueryReturnsFalseWhenNoFieldMatches() throws Exception {
+        Method m = HomeController.class.getDeclaredMethod(
+                "matchesQuery",
+                com.fasterxml.jackson.databind.JsonNode.class, String.class);
+        m.setAccessible(true);
+
+        com.fasterxml.jackson.databind.node.ObjectNode item = Json.newObject();
+        item.put("title", "Movie Title");
+        item.put("name", "Movie Name");
+        item.put("overview", "Movie overview text");
+
+        boolean result = (boolean) m.invoke(controller, item, "xyz_no_match");
+        assertFalse("matchesQuery must return false when no field contains the query", result);
+    }
+
+}
