@@ -647,4 +647,29 @@ public class MediaDetailActorTest {
         }};
 
     }
+    @Test
+    public void testMatchesTypeReturnsTrueWhenMediaTypeIsAll() {
+        MediaDetailsActor.MediaDetailsFilter f =
+                new MediaDetailsActor.MediaDetailsFilter("all", "");
+
+        ObjectNode item = Json.newObject();
+        item.put("id", "1");
+        item.put("type", "movie");
+        item.put("title", "Batman");
+
+        assertTrue(f.accept(item));
+    }
+    @Test
+    public void testMatchesTypeWithAllReturnsTrue() {
+        MediaDetailsActor.MediaDetailsFilter filter =
+                new MediaDetailsActor.MediaDetailsFilter("all", "");
+
+        ObjectNode item = Json.newObject();
+        item.put("id", "1");
+        item.put("type", "movie");
+
+        assertTrue(filter.accept(item));
+    }
+
+
 }
