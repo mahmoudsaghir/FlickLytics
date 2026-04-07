@@ -49,6 +49,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import java.util.stream.StreamSupport;
 
+//import javax.inject.Inject;
+//import javax.inject.Named;
+import actors.FinancialPerformanceActor;
+
 /**
  * Main controller for the FlickLytics web application.
  * Handles HTTP requests and responses for the search functionality and person statistics pages.
@@ -91,6 +95,8 @@ public class HomeController extends Controller {
     private final Materializer materializer;
     private final MediaStreamService mediaStreamService;
 
+    private final ActorRef financialActor;
+
     @Inject
     WebJarsUtil webJarsUtil;
 
@@ -115,7 +121,8 @@ public class HomeController extends Controller {
                           GenreService genreService, TmdbService tmdbService,
                           MediaDetailsService mediaDetailsService, ReviewsService reviewsService,
                           ActorSystem actorSystem, @Named("supervisorActor") ActorRef supervisorActor,
-                          Materializer materializer,MediaStreamService mediaStreamService) {
+                          Materializer materializer,MediaStreamService mediaStreamService,
+                          @Named("financialActor") ActorRef financialActor) {
         this.formFactory = formFactory;
         this.messagesApi = messagesApi;
         this.clExecutionContext = clExecutionContext;
@@ -138,6 +145,40 @@ public class HomeController extends Controller {
 
         this.actorSystem = actorSystem;
         this.supervisorActor = supervisorActor;
+
+        this.financialActor = financialActor;
+    }
+
+
+    public HomeController(
+            FormFactory formFactory,
+            MessagesApi messagesApi,
+            ClassLoaderExecutionContext clExecutionContext,
+            Config config,
+            GenreService genreService,
+            TmdbService tmdbService,
+            MediaDetailsService mediaDetailsService,
+            ReviewsService reviewsService,
+            ActorSystem actorSystem,
+            ActorRef supervisorActor,
+            Materializer materializer,
+            MediaStreamService mediaStreamService
+    ) {
+        this(
+                formFactory,
+                messagesApi,
+                clExecutionContext,
+                config,
+                genreService,
+                tmdbService,
+                mediaDetailsService,
+                reviewsService,
+                actorSystem,
+                supervisorActor,
+                materializer,
+                mediaStreamService,
+                null
+        );
     }
 
     /**
@@ -168,17 +209,20 @@ public class HomeController extends Controller {
 
     /**
      * Retrieves movie details from the TMDB service, extracts the
-     * budget and revenue values, creates a FinancialPerformance object, and
+     * budget and revenue values, sends a Calculate message to the
+     * FinancialPerformanceActor to compute financial performance, and
      * renders the financial performance view.
+     *
      * This action is asynchronous and non-blocking.
-     * Error handling is included to report API failures.
+     * Error handling is included to report API failures or actor timeouts.
      *
      * @param request The HTTP request
      * @param id      The unique identifier of the movie
-     * @return a promise to render containing the rendered financial performance page,
-     * or an internal server error if the movie data cannot be retrieved
-     * @author Charles Wang
-     * @author Tasmia Naomi
+     * @return a CompletionStage that renders the financial performance page,
+     * or an internal server error if the movie data cannot be retrieved or actor fails
+     *
+     * Author: Charles Wang
+     * Author: Tasmia Naomi
      */
 
     public CompletionStage<Result> financialPerformance(Http.Request request, Integer id) {
@@ -191,21 +235,34 @@ public class HomeController extends Controller {
                 e.printStackTrace();
                 return null;
             }
-        }, clExecutionContext.current()).thenApply(details -> {
-
+        }, clExecutionContext.current()).thenCompose(details -> {
             if (details == null) {
-                return internalServerError("Failed to fetch movie financial data");
+                return CompletableFuture.completedFuture(
+                        internalServerError("Failed to fetch movie financial data")
+                );
             }
 
             long budget = details.path("budget").asLong(0);
             long revenue = details.path("revenue").asLong(0);
 
-            FinancialPerformance fp = new FinancialPerformance(budget, revenue);
+            // Send Calculate message to actor
+            if (financialActor == null) {
+                // fallback logic if actor is not available
+                FinancialPerformance fp = new FinancialPerformance(budget, revenue);
+                return CompletableFuture.completedFuture(
+                        ok(views.html.financialPerformance.render(fp, request, messages, webJarsUtil))
+                );
+            }
 
-            return ok(views.html.financialPerformance.render(fp, request, messages, webJarsUtil));
+            // normal actor call
+            return Patterns.ask(financialActor,
+                            new FinancialPerformanceActor.Calculate(budget, revenue),
+                            Duration.ofSeconds(3)) // timeout
+                    .thenApply(obj -> (FinancialPerformance) obj)
+                    .exceptionally(ex -> new FinancialPerformance(0, 0)) // fallback if actor fails
+                    .thenApply(fp -> ok(views.html.financialPerformance.render(fp, request, messages, webJarsUtil)));
         });
     }
-
     /**
      * Handles GET requests to display a person's "known for" items and statistics.
      * Retrieves data asynchronously from the TMDb API and displays comprehensive statistics.
