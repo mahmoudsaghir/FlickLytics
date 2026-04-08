@@ -14,7 +14,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.mockito.Mockito.mock;
+import org.apache.pekko.actor.Status;
 
 /**
  * Tests for supervised search WebSocket proxy actor.
@@ -49,6 +51,7 @@ public class SupervisedSearchWebSocketActorTest {
 
         private ActorRef pendingReplyTo;
         private final ActorRef childRef;
+        private boolean releaseRequested;
 
         public DeferredReplySupervisorActor(ActorRef childRef) {
             this.childRef = childRef;
@@ -60,11 +63,30 @@ public class SupervisedSearchWebSocketActorTest {
                     .matchAny(message -> {
                         if (message instanceof SupervisorActor.CreateSearchActor) {
                             pendingReplyTo = getSender();
-                        } else if (message == Release.INSTANCE && pendingReplyTo != null) {
-                            pendingReplyTo.tell(childRef, getSelf());
-                            pendingReplyTo = null;
+                            if (releaseRequested) {
+                                pendingReplyTo.tell(childRef, getSelf());
+                                pendingReplyTo = null;
+                                releaseRequested = false;
+                            }
+                        } else if (message == Release.INSTANCE) {
+                            if (pendingReplyTo != null) {
+                                pendingReplyTo.tell(childRef, getSelf());
+                                pendingReplyTo = null;
+                            } else {
+                                releaseRequested = true;
+                            }
                         }
                     })
+                    .build();
+        }
+    }
+
+    public static class FailingSupervisorActor extends AbstractActor {
+        @Override
+        public Receive createReceive() {
+            return receiveBuilder()
+                    .match(SupervisorActor.CreateSearchActor.class,
+                            message -> getSender().tell(new Status.Failure(new RuntimeException("boom")), getSelf()))
                     .build();
         }
     }
@@ -101,5 +123,93 @@ public class SupervisedSearchWebSocketActorTest {
             assertEquals("third", expectMsgClass(duration("2 seconds"), String.class));
         }};
     }
-}
 
+    @Test
+    public void testStopsAndReportsErrorWhenChildCreationFails() {
+        new TestKit(system) {{
+            TmdbService tmdbService = mock(TmdbService.class);
+
+            ActorRef supervisorStub = system.actorOf(Props.create(FailingSupervisorActor.class));
+            ActorRef proxy = system.actorOf(SupervisedSearchWebSocketActor.props(
+                    getRef(),
+                    supervisorStub,
+                    tmdbService,
+                    "http://api.tmdb.org/3/",
+                    "token",
+                    movieGenres(),
+                    tvGenres()
+            ));
+
+            watch(proxy);
+
+            assertEquals(
+                    "{\"type\":\"error\",\"message\":\"Failed to initialize search actor\"}",
+                    expectMsgClass(duration("2 seconds"), String.class)
+            );
+            expectTerminated(duration("2 seconds"), proxy);
+        }};
+    }
+
+    @Test
+    public void testDropsOldestBufferedMessagesWhenBufferLimitExceeded() {
+        new TestKit(system) {{
+            TmdbService tmdbService = mock(TmdbService.class);
+
+            ActorRef supervisorStub = system.actorOf(
+                    Props.create(DeferredReplySupervisorActor.class, () ->
+                            new DeferredReplySupervisorActor(getRef()))
+            );
+
+            ActorRef proxy = system.actorOf(SupervisedSearchWebSocketActor.props(
+                    getRef(),
+                    supervisorStub,
+                    tmdbService,
+                    "http://api.tmdb.org/3/",
+                    "token",
+                    movieGenres(),
+                    tvGenres()
+            ));
+
+            for (int i = 0; i < 35; i++) {
+                proxy.tell("m" + i, ActorRef.noSender());
+            }
+
+            supervisorStub.tell(DeferredReplySupervisorActor.Release.INSTANCE, ActorRef.noSender());
+
+            for (int i = 3; i < 35; i++) {
+                assertEquals("m" + i, expectMsgClass(duration("2 seconds"), String.class));
+            }
+
+            expectNoMessage(duration("300 millis"));
+        }};
+    }
+
+    @Test
+    public void testStopBeforeChildReadyCoversNullDelegatedPostStopBranch() {
+        new TestKit(system) {{
+            TmdbService tmdbService = mock(TmdbService.class);
+
+            ActorRef supervisorStub = system.actorOf(
+                    Props.create(DeferredReplySupervisorActor.class, () ->
+                            new DeferredReplySupervisorActor(getRef()))
+            );
+
+            ActorRef proxy = system.actorOf(SupervisedSearchWebSocketActor.props(
+                    getRef(),
+                    supervisorStub,
+                    tmdbService,
+                    "http://api.tmdb.org/3/",
+                    "token",
+                    movieGenres(),
+                    tvGenres()
+            ));
+
+            watch(proxy);
+            system.stop(proxy);
+            expectTerminated(duration("2 seconds"), proxy);
+
+            // Ensure no buffered message was flushed after a pre-ready stop.
+            assertFalse(msgAvailable());
+        }};
+    }
+}
