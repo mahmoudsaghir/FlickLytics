@@ -6,7 +6,15 @@ curl -i \
 -H "Sec-WebSocket-Version: 13" \
 http://localhost:9000/ws/tv
 - in browser test:
+# windows intellij setting
+curl.exe -v `
+  -H "Upgrade: websocket" `
+-H "Connection: Upgrade" `
+  -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" `
+-H "Sec-WebSocket-Version: 13" `
+http://localhost:9000/mediaDetailsWs?mediaType=tv
 
+- test on windows
 http://localhost:9000/flicklytics/movie/550
 # Output of test:
   [BroadcastHub] pushing id=550 type=movie title=Fight Club
