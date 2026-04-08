@@ -1,19 +1,8 @@
 @import java.text.NumberFormat
 @import java.util.Locale
-@(fp: models.FinancialPerformance)(implicit request: play.mvc.Http.Request, messages: play.i18n.Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
+@(fp: actors.FinancialPerformanceActor.Result)(implicit request: play.mvc.Http.Request, messages: play.i18n.Messages, webJarsUtil: org.webjars.play.WebJarsUtil)
 
 @main("Financial Performance") {
-
-@defining(fp.getBudget()) { budget =>
-@defining(fp.getRevenue()) { revenue =>
-@defining(fp.getProfit()) { profit =>
-@defining(fp.getRoiPercent()) { roiPercent =>
-
-@defining(NumberFormat.getIntegerInstance(Locale.US)) { intFormatter =>
-@defining(NumberFormat.getNumberInstance(Locale.US)) { percentFormatter =>
-
-@percentFormatter.setMinimumFractionDigits(2)
-@percentFormatter.setMaximumFractionDigits(2)
 
 <div class="container mt-4">
     <div class="page-header d-flex justify-content-between align-items-center">
@@ -24,6 +13,7 @@
     </div>
 
     <div class="card shadow-sm p-4 mt-3">
+
         <p class="text-center mb-3"><strong>Net Profit = Revenue − Budget</strong></p>
 
         <table class="table table-bordered text-center mb-4">
@@ -37,14 +27,14 @@
             <tbody>
             <tr>
                 <td>
-                    @if(profit < 0) {
-                    <span style="color:red;">-$@fp.formatMillions(Math.abs(profit))</span>
+                    @if(fp.profit < 0) {
+                    <span style="color:red;">-$@fp.formattedProfit</span>
                     } else {
-                    $@fp.formatMillions(profit)
+                    $@fp.formattedProfit
                     }
                 </td>
-                <td>$@fp.formatMillions(revenue)</td>
-                <td>$@fp.formatMillions(budget)</td>
+                <td>$@fp.formattedRevenue</td>
+                <td>$@fp.formattedBudget</td>
             </tr>
             </tbody>
         </table>
@@ -62,27 +52,21 @@
             <tbody>
             <tr>
                 <td>
-                    @if(roiPercent < 0) {
-                    <span style="color:red;">@fp.formatPercent(roiPercent)%</span>
+                    @if(fp.roi < 0) {
+                    <span style="color:red;">@fp.formattedRoi%</span>
                     } else {
-                    @fp.formatPercent(roiPercent)%
+                    @fp.formattedRoi%
                     }
                 </td>
-                <td>$@fp.formatMillions(revenue)</td>
-                <td>$@fp.formatMillions(budget)</td>
+                <td>$@fp.formattedRevenue</td>
+                <td>$@fp.formattedBudget</td>
             </tr>
             </tbody>
         </table>
 
-        <p><strong>Financial Rating:</strong> @fp.getFinancialRating()</p>
+        <p><strong>Financial Rating:</strong> @fp.rating</p>
 
     </div>
 </div>
 
-}
-}
-}
-}
-}
-}
 }

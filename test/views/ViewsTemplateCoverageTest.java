@@ -1,8 +1,8 @@
 package views;
 
+import actors.FinancialPerformanceActor;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import forms.SearchForm;
-import models.FinancialPerformance;
 import models.MovieOrTVShow;
 import models.PersonStats;
 import models.Readability;
@@ -234,10 +234,36 @@ public class ViewsTemplateCoverageTest extends WithApplication {
 
     @Test
     public void testFinancialPerformanceTemplateObjectHelpers() throws Exception {
-        FinancialPerformance fp = new FinancialPerformance(100_000_000L, 250_000_000L);
+        // Prepare a Result object with all required fields
+        long budget = 100_000_000L;
+        long revenue = 250_000_000L;
+        long profit = revenue - budget; // 150_000_000
+        double roi = (budget == 0) ? 0.0 : ((double) profit / budget) * 100; // 150%
+        String rating = "High Return"; // based on your getFinancialRating logic
+        String formattedBudget = "100M";
+        String formattedRevenue = "250M";
+        String formattedProfit = "150M";
+        String formattedRoi = "150.00";
+
+        FinancialPerformanceActor.Result fp = new FinancialPerformanceActor.Result(
+                budget,
+                revenue,
+                profit,
+                roi,
+                rating,
+                formattedBudget,
+                formattedRevenue,
+                formattedProfit,
+                formattedRoi
+        );
+
+        // Render the template
         String html = views.html.financialPerformance.render(fp, request, messages, webJarsUtil).body();
+
+        // Basic content checks
         assertTrue(html.contains("Financial Performance"));
 
+        // Scala template helpers (unchanged)
         assertNotNull(views.html.financialPerformance$.MODULE$.f());
         assertEquals(views.html.financialPerformance$.MODULE$, views.html.financialPerformance$.MODULE$.ref());
         assertSerialized(views.html.financialPerformance$.MODULE$);

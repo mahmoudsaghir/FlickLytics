@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import forms.SearchForm;
-import models.FinancialPerformance;
 import models.GlobalDiversityResult;
 import models.MovieOrTVShow;
 import models.PersonStats;
@@ -50,8 +49,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import java.util.stream.StreamSupport;
 
-//import javax.inject.Inject;
-//import javax.inject.Named;
 import actors.FinancialPerformanceActor;
 
 /**
@@ -150,6 +147,24 @@ public class HomeController extends Controller {
         this.financialActor = financialActor;
     }
 
+    /**
+     * Creates a HomeController and sets up all the things it needs to work.
+     * Play Framework's Guice injector will provide these dependencies automatically.
+     *
+     * @param formFactory         Handles form input and validation
+     * @param messagesApi         Used for messages and translations
+     * @param clExecutionContext  Execution context for running async tasks
+     * @param config              App configuration settings
+     * @param genreService        Service for movie/TV genres
+     * @param tmdbService         Service for accessing TMDB API
+     * @param mediaDetailsService Service for fetching media details
+     * @param reviewsService      Service for managing reviews
+     * @param actorSystem         The Akka actor system for running actors
+     * @param supervisorActor     Actor that supervises other actors
+     * @param materializer        Used for streaming media content
+     * @param mediaStreamService  Service for handling media streams
+     * @author Charles Wang
+     */
 
     public HomeController(
             FormFactory formFactory,
@@ -209,21 +224,25 @@ public class HomeController extends Controller {
     }
 
     /**
-     * Retrieves movie details from the TMDB service, extracts the
-     * budget and revenue values, sends a Calculate message to the
-     * FinancialPerformanceActor to compute financial performance, and
-     * renders the financial performance view.
+     * Retrieves movie details from the TMDB service, extracts the budget and revenue,
+     * sends a Calculate message to the FinancialPerformanceActor to compute profit,
+     * ROI, financial rating, and formatted values, and renders the financial performance view.
      *
-     * This action is asynchronous and non-blocking.
-     * Error handling is included to report API failures or actor timeouts.
+     * The action is asynchronous and non-blocking. It includes:
+     * 1. Fallback logic if the actor is unavailable.
+     * 2. Exception handling for API failures or actor timeouts.
+     *
+     * The result object passed to the view is now a FinancialPerformanceActor.Result,
+     * which contains all computed fields and pre-formatted strings for display.
      *
      * @param request The HTTP request
      * @param id      The unique identifier of the movie
      * @return a CompletionStage that renders the financial performance page,
-     * or an internal server error if the movie data cannot be retrieved or actor fails
+     *         or an internal server error if the movie data cannot be retrieved
+     *         or the actor fails
      *
-     * Author: Charles Wang
-     * Author: Tasmia Naomi
+     * @author Charles Wang
+     * @author Tasmia Naomi
      */
 
     public CompletionStage<Result> financialPerformance(Http.Request request, Integer id) {
@@ -237,6 +256,7 @@ public class HomeController extends Controller {
                 return null;
             }
         }, clExecutionContext.current()).thenCompose(details -> {
+
             if (details == null) {
                 return CompletableFuture.completedFuture(
                         internalServerError("Failed to fetch movie financial data")
@@ -246,24 +266,39 @@ public class HomeController extends Controller {
             long budget = details.path("budget").asLong(0);
             long revenue = details.path("revenue").asLong(0);
 
-            // Send Calculate message to actor
+            // Fallback result if actor is unavailable
             if (financialActor == null) {
-                // fallback logic if actor is not available
-                FinancialPerformance fp = new FinancialPerformance(budget, revenue);
+                FinancialPerformanceActor.Result fallback =
+                        new FinancialPerformanceActor.Result(
+                                budget,
+                                revenue,
+                                revenue - budget,
+                                (budget == 0) ? 0 : ((double)(revenue - budget) / budget) * 100,
+                                "Fallback",
+                                "0M", "0M", "0M", "0.00"
+                        );
+
                 return CompletableFuture.completedFuture(
-                        ok(views.html.financialPerformance.render(fp, request, messages, webJarsUtil))
+                        ok(views.html.financialPerformance.render(fallback, request, messages, webJarsUtil))
                 );
             }
 
-            // normal actor call
-            return Patterns.ask(financialActor,
+            // Actor call
+            return Patterns.ask(
+                            financialActor,
                             new FinancialPerformanceActor.Calculate(budget, revenue),
-                            Duration.ofSeconds(3)) // timeout
-                    .thenApply(obj -> (FinancialPerformance) obj)
-                    .exceptionally(ex -> new FinancialPerformance(0, 0)) // fallback if actor fails
-                    .thenApply(fp -> ok(views.html.financialPerformance.render(fp, request, messages, webJarsUtil)));
+                            Duration.ofSeconds(3)
+                    )
+                    .thenApply(obj -> (FinancialPerformanceActor.Result) obj)
+                    .exceptionally(ex ->
+                            new FinancialPerformanceActor.Result(0, 0, 0, 0, "Error", "0M", "0M", "0M", "0.00")
+                    )
+                    .thenApply(fp ->
+                            ok(views.html.financialPerformance.render(fp, request, messages, webJarsUtil))
+                    );
         });
     }
+
     /**
      * Handles GET requests to display a person's "known for" items and statistics.
      * Retrieves data asynchronously from the TMDb API and displays comprehensive statistics.
