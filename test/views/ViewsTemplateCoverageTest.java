@@ -27,6 +27,7 @@ import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -75,7 +76,7 @@ public class ViewsTemplateCoverageTest extends WithApplication {
         // Cover object helper methods that JaCoCo tracks separately
         assertNotNull(views.html.index$.MODULE$.f());
         assertEquals(views.html.index$.MODULE$, views.html.index$.MODULE$.ref());
-        assertEquals(null, views.html.index$.MODULE$.apply$default$4(searchForm));
+        assertNull(views.html.index$.MODULE$.apply$default$4(searchForm));
         assertSerialized(views.html.index$.MODULE$);
     }
 
@@ -143,6 +144,26 @@ public class ViewsTemplateCoverageTest extends WithApplication {
     }
 
     @Test
+    public void testDetailsTemplateAdditionalItemTypeEqualityBranches() {
+        Readability.ReadabilityScores scores = new Readability.ReadabilityScores(50.0, 9.0, 3, 20, 30);
+
+        // Fresh String instances help execute Scala string equality paths in generated Twirl bytecode.
+        String freshMovie = new String("movie");
+        String freshTv = new String("tv");
+
+        ObjectNode movieNode = Json.newObject();
+        ObjectNode tvNode = Json.newObject();
+
+        String movieHtml = views.html.details.render(freshMovie, movieNode, "overview", scores, request, messages, webJarsUtil).body();
+        String tvHtml = views.html.details.render(freshTv, tvNode, "overview", scores, request, messages, webJarsUtil).body();
+        String unknownHtml = views.html.details.render(new String("other"), Json.newObject(), "overview", scores, request, messages, webJarsUtil).body();
+
+        assertTrue(movieHtml.contains("Movie Details"));
+        assertTrue(tvHtml.contains("TV Show Details"));
+        assertTrue(unknownHtml.contains("TV Show Details"));
+    }
+
+    @Test
     public void testPersonStatsTemplateBranchesAndObjectHelpers() throws Exception {
         // Person name null branch
         PersonStats statsMissing = new PersonStats(Collections.singletonList(
@@ -191,9 +212,20 @@ public class ViewsTemplateCoverageTest extends WithApplication {
     }
 
     @Test
-    public void testGlobalDiversityTemplateObjectHelpers() throws Exception {
-        String html = views.html.globalDiversity.render("movie", 1, "Test", 0.5, 0.6, request, messages, webJarsUtil).body();
-        assertTrue(html.contains("Global Diversity Analysis"));
+    public void testGlobalDiversityTemplateCategoryBranchesAndHelpers() throws Exception {
+        String movieHtml = views.html.globalDiversity.render("movie", 1, "Movie Name", 0.5, 0.6, request, messages, webJarsUtil).body();
+        String tvHtml = views.html.globalDiversity.render("tv", 2, "TV Name", 0.7, 0.8, request, messages, webJarsUtil).body();
+        String otherHtml = views.html.globalDiversity.render("documentary", 3, "Doc Name", 0.9, 1.0, request, messages, webJarsUtil).body();
+
+        assertTrue(movieHtml.contains("Movie"));
+        assertTrue(tvHtml.contains("TV show"));
+        assertTrue(otherHtml.contains("Documentary"));
+
+        // Also exercise non-interned categories to hit generated equality bytecode branches.
+        String movieFresh = views.html.globalDiversity.render(new String("movie"), 4, "Movie Fresh", 0.1, 0.2, request, messages, webJarsUtil).body();
+        String tvFresh = views.html.globalDiversity.render(new String("tv"), 5, "TV Fresh", 0.3, 0.4, request, messages, webJarsUtil).body();
+        assertTrue(movieFresh.contains("Movie"));
+        assertTrue(tvFresh.contains("TV show"));
 
         assertNotNull(views.html.globalDiversity$.MODULE$.f());
         assertEquals(views.html.globalDiversity$.MODULE$, views.html.globalDiversity$.MODULE$.ref());
@@ -231,6 +263,8 @@ public class ViewsTemplateCoverageTest extends WithApplication {
         assertTrue(baos.size() > 0);
     }
 }
+
+
 
 
 
