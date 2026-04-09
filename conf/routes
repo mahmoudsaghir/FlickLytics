@@ -1,30 +1,24 @@
 # Routes
-# This file defines all application routes (Higher priority routes first)
-# ~~~~
 
-# An example controller showing a sample home page
-GET        /                                                  controllers.HomeController.redirectToFlicklytics
-GET        /flicklytics                                       controllers.HomeController.index(request: Request)
-GET        /flicklytics/global-diversity/:category/:id        controllers.HomeController.globalDiversity(request: Request, category: String, id: Int)
+GET   /                                               controllers.HomeController.redirectToFlicklytics
+GET   /flicklytics                                    controllers.HomeController.index(request: Request)
+GET   /flicklytics/global-diversity/:category/:id     controllers.HomeController.globalDiversity(request: Request, category: String, id: Int)
 
-# Person stats page
-GET        /person/:id/stats                                  controllers.HomeController.personStats(id: String, request: Request)
+GET   /person/:id/stats                               controllers.HomeController.personStats(id: String, request: Request)
 
-# Map static resources from the /public folder to the /assets URL path
-GET        /flicklytics/assets/*file                          controllers.Assets.versioned(path="/public", file: Asset)
+GET   /flicklytics/assets/*file                       controllers.Assets.versioned(path="/public", file: Asset)
 
-# Map details for checking items under /flicklytics
-GET        /flicklytics/movie/:id                             controllers.HomeController.movie(id: Long, request: Request)
-GET        /flicklytics/tv/:id                                controllers.HomeController.tv(id: Long, request: Request)
+GET   /flicklytics/financial-performance/:id          controllers.HomeController.financialPerformance(request: Request, id: Int)
 
-# Map details for items under /financial-performance for a specific movie by ID
-GET        /flicklytics/financial-performance/:id             controllers.HomeController.financialPerformance(request: Request, id: Int)
+GET   /flicklytics/reviews/:type/:id                  controllers.HomeController.reviews(type: String, id: Long, request: Request)
 
-# Map reviews and sentiment analysis for movies and TV shows
-GET        /flicklytics/reviews/:type/:id                     controllers.HomeController.reviews(type: String, id: Long, request: Request)
+# WebSocket endpoints — fixed paths MUST be before :id wildcards
+GET   /ws/search                                      controllers.HomeController.ws()
+GET   /ws/movie                                       controllers.HomeController.movieWs()
+GET   /ws/tv                                          controllers.HomeController.tvWs()
+GET   /flicklytics/movie/ws                           controllers.HomeController.movieWs()
+GET   /flicklytics/tv/ws                              controllers.HomeController.tvWs()
 
-# WebSocket endpoint for real-time search updates
-GET        /ws/search                                         controllers.HomeController.ws()
-
-GET     /ws/movie                   controllers.HomeController.movieWs()
-GET     /ws/tv                      controllers.HomeController.tvWs()
+# Parameterized detail routes — AFTER the fixed /ws routes above
+GET   /flicklytics/movie/:id                          controllers.HomeController.movie(id: Long, request: Request)
+GET   /flicklytics/tv/:id                             controllers.HomeController.tv(id: Long, request: Request)

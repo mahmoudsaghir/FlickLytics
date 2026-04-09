@@ -25,7 +25,7 @@ import java.util.Set;
  *
  * @author Zenghui WU
  */
-public class MediaDetailsActor extends AbstractActor {
+public class  MediaDetailsActor extends AbstractActor {
 
     // -------------------------------------------------------------------------
     // Message classes
@@ -180,8 +180,6 @@ public class MediaDetailsActor extends AbstractActor {
         }
     }
 
-
-
     /**
      * Switches the active filter (type + query), clears the dedup set so the
      * new filter starts fresh, then immediately pushes the supplied seed batch.
@@ -196,6 +194,10 @@ public class MediaDetailsActor extends AbstractActor {
         this.mediaType = msg.mediaType;
         this.query     = msg.query;
         seenIds.clear();
+        System.out.println("[MediaDetailsActor] filter changed to type="
+                + mediaType + " query=" + query
+                + " seenIds cleared, new seed size=" + msg.seedItems.size());
+        System.out.flush();
         pushSeed(msg.seedItems);
     }
 
@@ -211,6 +213,8 @@ public class MediaDetailsActor extends AbstractActor {
         for (ObjectNode item : seedItems) {
             String id = item.path("id").asText("");
             if (!id.isEmpty() && seenIds.add(id)) {
+                System.out.println("[MediaDetailsActor] seed pushed id=" + id);
+                System.out.flush();
                 out.tell(item, getSelf());
             }
         }
@@ -281,13 +285,25 @@ public class MediaDetailsActor extends AbstractActor {
             this.typeFilter  = typeFilter;
             this.queryFilter = queryFilter == null ? "" : queryFilter.toLowerCase();
         }
-
+        /**
+         * Encapsulates type filtering, query filtering, and deduplication logic.
+         * Extracted as a public static inner class so JaCoCo can instrument it
+         * directly via plain unit tests, independent of actor threading.
+         *
+         * @author Zenghui WU
+         */
         public void reset(String typeFilter, String queryFilter) {
             this.typeFilter  = typeFilter;
             this.queryFilter = queryFilter == null ? "" : queryFilter.toLowerCase();
             seenIds.clear();
         }
-
+        /**
+         * Encapsulates type filtering, query filtering, and deduplication logic.
+         * Extracted as a public static inner class so JaCoCo can instrument it
+         * directly via plain unit tests, independent of actor threading.
+         *
+         * @author Zenghui WU
+         */
         public boolean accept(ObjectNode item) {
             String id = item.path("id").asText("");
             if (id.isEmpty())         return false;
@@ -297,7 +313,13 @@ public class MediaDetailsActor extends AbstractActor {
             seenIds.add(id);
             return true;
         }
-
+        /**
+         * Encapsulates type filtering, query filtering, and deduplication logic.
+         * Extracted as a public static inner class so JaCoCo can instrument it
+         * directly via plain unit tests, independent of actor threading.
+         *
+         * @author Zenghui WU
+         */
         private boolean matchesType(ObjectNode item) {
             if (typeFilter.equals("all")) return true;
             String type = item.path("type").asText("");
@@ -305,7 +327,13 @@ public class MediaDetailsActor extends AbstractActor {
             String link = item.path("link").asText("");
             return link.startsWith("/" + typeFilter + "/");
         }
-
+        /**
+         * Encapsulates type filtering, query filtering, and deduplication logic.
+         * Extracted as a public static inner class so JaCoCo can instrument it
+         * directly via plain unit tests, independent of actor threading.
+         *
+         * @author Zenghui WU
+         */
         private boolean matchesQuery(ObjectNode item) {
             if (queryFilter.isEmpty()) return true;
             String title    = item.path("title").asText("").toLowerCase();
