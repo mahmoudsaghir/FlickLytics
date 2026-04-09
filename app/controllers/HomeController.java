@@ -555,7 +555,7 @@ public class HomeController extends Controller {
         // cancels its liveSource subscription automatically.
         ActorRef old = activeMediaActors.remove(mediaType);
         if (old != null) {
-            System.out.println("[buildMediaFlow] stopping old actor for type=" + mediaType);
+            System.out.println("[buildMediaFlow] Actor for type= " + mediaType);
             old.tell(MediaDetailsActor.STOP, ActorRef.noSender());
         }
 

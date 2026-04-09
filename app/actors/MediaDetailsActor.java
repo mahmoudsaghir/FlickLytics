@@ -176,7 +176,7 @@ public class  MediaDetailsActor extends AbstractActor {
                 + " matches=" + matchesFilter(item));
         if (!id.isEmpty() && matchesFilter(item) && seenIds.add(id)) {
             forwardedCount++;
-            System.out.println("[MediaDetailsActor] forwarded id=" + id + " to WebSocket"+ " total forwarded="+ forwardedCount);
+            System.out.println("[MediaDetailsActor] forwarded id=" + id + " to WebSocket"+ " forwarded="+ forwardedCount);
             ObjectNode copy = item.deepCopy();     // ← copy so hub item is not mutated
             copy.put("source", "live");
             out.tell(copy, getSelf());
