@@ -543,12 +543,23 @@ public class HomeController extends Controller {
      * @return a Flow<JsonNode, JsonNode, ?> for WebSocket.Json.accept
      * @author Zenghui WU
      */
+    // HomeController.java — add after line 98 (private final ActorRef financialActor)
+// Tracks the one active MediaDetailsActor per media type.
+// When a new WS connects, the old actor is stopped before the new one starts.
+    private final Map<String, ActorRef> activeMediaActors = new ConcurrentHashMap<>();
     private Flow<JsonNode, JsonNode, ?> buildMediaFlow(String mediaType) {
 
+        // ── STOP THE OLD ACTOR FOR THIS TYPE ─────────────────────────────────
+        // Without this, every page refresh adds another subscription.
+        // Sending STOP causes getContext().stop(self) in the actor, which
+        // cancels its liveSource subscription automatically.
+        ActorRef old = activeMediaActors.remove(mediaType);
+        if (old != null) {
+            System.out.println("[buildMediaFlow] stopping old actor for type=" + mediaType);
+            old.tell(MediaDetailsActor.STOP, ActorRef.noSender());
+        }
+
         // ── 1. Classic ActorSource ────────────────────────────────────────────
-        // preMaterialize returns Pair<ActorRef, Source<JsonNode, NotUsed>>.
-        // Using the concrete NotUsed type parameter avoids the compiler error
-        // caused by assigning Source<JsonNode,NotUsed> to Source<JsonNode,?>.
         Pair<ActorRef, Source<JsonNode, NotUsed>> sourcePair =
                 Source.<JsonNode>actorRef(
                         msg -> java.util.Optional.empty(),
@@ -561,9 +572,6 @@ public class HomeController extends Controller {
         Source<JsonNode, NotUsed> wsSource = sourcePair.second();
 
         // ── 2. Ask SupervisorActor to create a MediaDetailsActor child ────────
-        // The supervisor creates the child with props(wsOut, mediaType) and
-        // replies with its ActorRef. Using ask+join so the ref is available
-        // before we wire up the broadcast subscription below.
         ActorRef detailsActor = Patterns
                 .ask(
                         supervisorActor,
@@ -574,9 +582,11 @@ public class HomeController extends Controller {
                 .toCompletableFuture()
                 .join();
 
-        // ── 3. Seed the actor with initial cached items ───────────────────────
-        // StartSession sets the filter, clears seenIds, and pushes the seed
-        // batch so the browser sees data immediately on connect.
+        // ── REGISTER THE NEW ACTOR ────────────────────────────────────────────
+        // Store so the next WS connect can stop this one.
+        activeMediaActors.put(mediaType, detailsActor);
+
+        // ── 3. Seed ───────────────────────────────────────────────────────────
         List<ObjectNode> initialSeed = buildSeedItems(mediaType, "");
         detailsActor.tell(
                 new MediaDetailsActor.StartSession(mediaType, "", initialSeed),
@@ -584,20 +594,19 @@ public class HomeController extends Controller {
         );
 
         // ── 4. Subscribe to the broadcast hub ────────────────────────────────
-        // Every item pushed via mediaStreamService.push() arrives here as a
-        // NewItem; the actor filters by type+query and deduplicates.
         mediaStreamService.liveSource()
                 .runForeach(
                         item -> detailsActor.tell(
                                 new MediaDetailsActor.NewItem(item), ActorRef.noSender()),
                         materializer
                 )
-                .whenComplete((done, ex) ->
-                        detailsActor.tell(MediaDetailsActor.STOP, ActorRef.noSender()));
+                .whenComplete((done, ex) -> {
+                    detailsActor.tell(MediaDetailsActor.STOP, ActorRef.noSender());
+                    // clean up the map when the stream ends naturally
+                    activeMediaActors.remove(mediaType, detailsActor);
+                });
 
-        // ── 5. Inbound sink — messages FROM the browser ────────────────────────
-        // Expected shape: { "type": "movie"|"tv", "query": "..." }
-        // Both fields are optional; omitted fields fall back to defaults.
+        // ── 5. Inbound sink ───────────────────────────────────────────────────
         Sink<JsonNode, ?> inSink = Sink.foreach(msg -> {
             String newType = msg.hasNonNull("type")  ? msg.get("type").asText()  : mediaType;
             String query   = msg.hasNonNull("query") ? msg.get("query").asText() : "";
@@ -608,11 +617,10 @@ public class HomeController extends Controller {
             );
         });
 
-        // ── 6. Combine into a single Flow ──────────────────────────────────────
-        // wsSource receives seed pushes via StartSession/ChangeSearch (the actor
-        // calls out.tell() → wsOut → wsSource). No separate seedSource needed.
+        // ── 6. Combine ────────────────────────────────────────────────────────
         return Flow.fromSinkAndSource(inSink, wsSource);
     }
+
 
     // ── Cache helpers -> share with Tasmia Naomi
     //share buildSeedItems()'
