@@ -26,7 +26,7 @@ import java.util.Set;
  * @author Zenghui WU
  */
 public class  MediaDetailsActor extends AbstractActor {
-
+    private int forwardedCount = 0;
     // -------------------------------------------------------------------------
     // Message classes
     // -------------------------------------------------------------------------
@@ -175,7 +175,8 @@ public class  MediaDetailsActor extends AbstractActor {
                 + " filter=" + mediaType
                 + " matches=" + matchesFilter(item));
         if (!id.isEmpty() && matchesFilter(item) && seenIds.add(id)) {
-            System.out.println("[MediaDetailsActor] forwarded id=" + id + " to WebSocket");
+            forwardedCount++;
+            System.out.println("[MediaDetailsActor] forwarded id=" + id + " to WebSocket"+ " total forwarded="+ forwardedCount);
             out.tell(item, getSelf());
         }
     }
