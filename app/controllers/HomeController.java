@@ -458,12 +458,21 @@ public class HomeController extends Controller {
              * receive it via their MediaDetailsActor.
              * */
             ObjectNode node = MediaStreamService.buildNode(type, result.details, result.overview);
-            searchCache.put(type + ":" + id, node);
+            boolean isNew = searchCache.putIfAbsent(type + ":" + id, node) == null;
+            //searchCache.put(type + ":" + id, node);
             System.out.println("[BroadcastHub] pushing id=" + id
                     + " type=" + type
                     + " title=" + result.details.path("title").asText(
-                    result.details.path("name").asText("unknown")));            System.out.flush();
-            mediaStreamService.push(node);
+                    result.details.path("name").asText("unknown")));
+            System.out.flush();
+            if (isNew) {
+                System.out.println("[BroadcastHub] PUSHED id=" + id + " type=" + type + " title=...");
+                mediaStreamService.push(node);
+            }else{
+                System.out.println("[BroadcastHub] SKIPPED (duplicate) id=" + id + " type=" + type);
+
+            }
+            //mediaStreamService.push(node);
 
             return ok(views.html.details.render(
                     type,
@@ -641,40 +650,59 @@ public class HomeController extends Controller {
         });
     }
 
-    private List<ObjectNode> buildSeedItems(String mediaType, String query) {
-        List<ObjectNode> results = new ArrayList<>();
+//    private List<ObjectNode> buildSeedItems(String mediaType, String query) {
+//        List<ObjectNode> results = new ArrayList<>();
+//
+//        for (JsonNode node : searchCache.values()) {
+//            if (node == null) {
+//                continue;
+//            }
+//
+//            JsonNode resultArray = node.path("results");
+//            if (!resultArray.isArray()) {
+//                continue;
+//            }
+//
+//            for (JsonNode item : resultArray) {
+//                if (!item.isObject()) {
+//                    continue;
+//                }
+//
+//                if (!matchesMediaType(item, mediaType)) {
+//                    continue;
+//                }
+//
+//                if (!matchesQuery(item, query)) {
+//                    continue;
+//                }
+//
+//                results.add((ObjectNode) item);
+//            }
+//        }
+//
+//        Collections.reverse(results);
+//        return results;
+//    }
+private List<ObjectNode> buildSeedItems(String mediaType, String query) {
+    List<ObjectNode> results = new ArrayList<>();
 
-        for (JsonNode node : searchCache.values()) {
-            if (node == null) {
-                continue;
-            }
-
-            JsonNode resultArray = node.path("results");
-            if (!resultArray.isArray()) {
-                continue;
-            }
-
-            for (JsonNode item : resultArray) {
-                if (!item.isObject()) {
-                    continue;
-                }
-
-                if (!matchesMediaType(item, mediaType)) {
-                    continue;
-                }
-
-                if (!matchesQuery(item, query)) {
-                    continue;
-                }
-
-                results.add((ObjectNode) item);
-            }
+    for (JsonNode node : searchCache.values()) {
+        if (node == null || !node.isObject()) {
+            continue;
         }
-
-        Collections.reverse(results);
-        return results;
+        // searchCache holds flat ObjectNodes from buildNode() — no "results" wrapper
+        if (!matchesMediaType(node, mediaType)) {
+            continue;
+        }
+        if (!matchesQuery(node, query)) {
+            continue;
+        }
+        results.add((ObjectNode) node);
     }
 
+    Collections.reverse(results);
+    return results;
+}
     private boolean matchesMediaType(JsonNode item, String mediaType) {
         if (mediaType == null || mediaType.isBlank() || "all".equalsIgnoreCase(mediaType)) {
             return true;
