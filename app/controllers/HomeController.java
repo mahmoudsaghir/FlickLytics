@@ -467,13 +467,18 @@ public class HomeController extends Controller {
             System.out.flush();
             if (isNew) {
                 System.out.println("[BroadcastHub] PUSHED id=" + id + " type=" + type + " title=...");
+                node.put("source","fetch");
                 mediaStreamService.push(node);
             }else{
                 System.out.println("[BroadcastHub] SKIPPED (duplicate) id=" + id + " type=" + type);
-
             }
             //mediaStreamService.push(node);
-
+            System.out.println("[BroadcastHub] id=" + id
+                    + " type=" + type
+                    + " isNew=" + isNew          // ← true=fresh push, false=duplicate skipped
+                    + " source=" + (isNew ? "fetch" : "duplicate-skipped")
+                    + " title=" + result.details.path("title").asText(
+                    result.details.path("name").asText("unknown")));
             return ok(views.html.details.render(
                     type,
                     result.details,
@@ -484,6 +489,7 @@ public class HomeController extends Controller {
                     webJarsUtil
             ));
         });
+
     }
 
     /**

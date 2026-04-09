@@ -177,6 +177,8 @@ public class  MediaDetailsActor extends AbstractActor {
         if (!id.isEmpty() && matchesFilter(item) && seenIds.add(id)) {
             forwardedCount++;
             System.out.println("[MediaDetailsActor] forwarded id=" + id + " to WebSocket"+ " total forwarded="+ forwardedCount);
+            ObjectNode copy = item.deepCopy();     // ← copy so hub item is not mutated
+            copy.put("source", "live");
             out.tell(item, getSelf());
         }
     }
@@ -216,6 +218,8 @@ public class  MediaDetailsActor extends AbstractActor {
             if (!id.isEmpty() && seenIds.add(id)) {
                 System.out.println("[MediaDetailsActor] seed pushed id=" + id);
                 System.out.flush();
+                ObjectNode copy = item.deepCopy();     // ← copy so cache is not mutated
+                copy.put("source", "seed");
                 out.tell(item, getSelf());
             }
         }
