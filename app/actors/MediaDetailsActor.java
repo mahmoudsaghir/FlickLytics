@@ -179,7 +179,7 @@ public class  MediaDetailsActor extends AbstractActor {
             System.out.println("[MediaDetailsActor] forwarded id=" + id + " to WebSocket"+ " total forwarded="+ forwardedCount);
             ObjectNode copy = item.deepCopy();     // ← copy so hub item is not mutated
             copy.put("source", "live");
-            out.tell(item, getSelf());
+            out.tell(copy, getSelf());
         }
     }
 
@@ -220,7 +220,7 @@ public class  MediaDetailsActor extends AbstractActor {
                 System.out.flush();
                 ObjectNode copy = item.deepCopy();     // ← copy so cache is not mutated
                 copy.put("source", "seed");
-                out.tell(item, getSelf());
+                out.tell(copy, getSelf());
             }
         }
     }
