@@ -5,6 +5,7 @@ import com.google.inject.name.Names;
 import org.apache.pekko.actor.ActorRef;
 import org.apache.pekko.actor.ActorSystem;
 import actors.SupervisorActor;
+import org.apache.pekko.actor.Props;
 import services.GlobalDiversityService;
 import services.ReviewsService;
 import services.TmdbService;
@@ -39,6 +40,11 @@ public class ActorModule extends AbstractModule {
                 .toProvider(FinancialPerformanceActorProvider.class);
     }
 
+    /**
+     * Provider for the SupervisorActor, which manages child actors for global diversity computations.
+     *
+     * @author Mahmoud Saghir
+     */
     public static class GlobalDiversityActorProvider implements Provider<ActorRef> {
 
         private final ActorSystem actorSystem;
@@ -49,6 +55,16 @@ public class ActorModule extends AbstractModule {
         private final String tmdbToken;
         private final Config config;
 
+        /**
+         * Constructor for GlobalDiversityActorProvider.
+         *
+         * @param actorSystem ActorSystem instance for creating actors
+         * @param service GlobalDiversityService instance for computing diversity metrics
+         * @param reviewsService ReviewsService instance for fetching review data
+         * @param tmdbService TmdbService instance for TMDb API interactions
+         * @param config Config instance for accessing configuration values
+         * @author Mahmoud Saghir
+         */
         @Inject
         public GlobalDiversityActorProvider(ActorSystem actorSystem,
                                             GlobalDiversityService service,
@@ -64,10 +80,16 @@ public class ActorModule extends AbstractModule {
             this.tmdbToken = config.getString("tmdb.api.key");
         }
 
+        /**
+         * Creates and returns an ActorRef for the SupervisorActor, which will manage child actors for global diversity computations.
+         *
+         * @return ActorRef for the SupervisorActor
+         * @author Mahmoud Saghir
+         */
         @Override
         public ActorRef get() {
             return actorSystem.actorOf(
-                    org.apache.pekko.actor.Props.create(
+                    Props.create(
                             SupervisorActor.class,
                             () -> new SupervisorActor(service, reviewsService, tmdbService, apiUrl, tmdbToken)
                     ),
@@ -76,15 +98,32 @@ public class ActorModule extends AbstractModule {
         }
     }
 
+    /**
+     * Provider for the FinancialPerformanceActor, which computes financial performance metrics for movies and TV shows.
+     *
+     * @author Charles Wang
+     */
     public static class FinancialPerformanceActorProvider implements Provider<ActorRef> {
 
         private final ActorSystem actorSystem;
 
+        /**
+         * Constructor for FinancialPerformanceActorProvider.
+         *
+         * @param actorSystem ActorSystem instance for creating actors
+         * @author Charles Wang
+         */
         @Inject
         public FinancialPerformanceActorProvider(ActorSystem actorSystem) {
             this.actorSystem = actorSystem;
         }
 
+        /**
+         * Creates and returns an ActorRef for the FinancialPerformanceActor, which will compute financial performance metrics for movies and TV shows.
+         *
+         * @return ActorRef for the FinancialPerformanceActor
+         * @author Charles Wang
+         */
         @Override
         public ActorRef get() {
             return actorSystem.actorOf(
