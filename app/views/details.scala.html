@@ -7,11 +7,11 @@
         @* --- Page Header --- *@
         <div class="page-header d-flex justify-content-between align-items-center">
             <div>
-                @if(itemType == "movie") {
-                    <h1>Movie Details</h1>
-                } else{
-                    <h1>TV Show Details</h1>
-                }
+            @if(itemType == "movie") {
+                <h1>Movie Details</h1>
+            } else{
+                <h1>TV Show Details</h1>
+            }
             </div>
             <div class="d-flex align-items-center gap-3">
                 <button type="button" class="btn-back" onclick="window.history.back()">
@@ -22,11 +22,11 @@
         @if(itemType == "movie") {
             <div class="row mt-4">
                 <div class="col-md-3 d-flex align-items-stretch">
-                    @defining(details.path("poster_path").asText("")) { p =>
-                        @if(p != "") {
-                            <img src="https://image.tmdb.org/t/p/w500@p" alt="poster" class="rounded shadow w-100 h-100" style="object-fit:cover;">
+                @defining(details.path("poster_path").asText("")) { p =>
+                    @if(p != "") {
+                        <img src="https://image.tmdb.org/t/p/w500@p" alt="poster" class="rounded shadow w-100 h-100" style="object-fit:cover;">
                         }
-                    }
+                }
                 </div>
 
                 <div class="col-md-9">
@@ -71,35 +71,35 @@
                                         <tr>
                                             <th>Homepage</th>
                                             <td>
-                                                @defining(details.path("homepage").asText("")) { hp =>
-                                                    @if(hp != "") {
-                                                        <a href="@hp" target="_blank">@hp</a>
-                                                    } else { N/A }
-                                                }
+                                            @defining(details.path("homepage").asText("")) { hp =>
+                                                @if(hp != "") {
+                                                    <a href="@hp" target="_blank">@hp</a>
+                                                } else { N/A }
+                                            }
                                             </td>
                                         </tr>
                                         <tr>
                                             <th>Genres</th>
                                             <td>
-                                                @defining(details.path("genres")) { gs =>
-                                                    @if(gs.isArray) {
-                                                        @for(g <- gs.elements().asScala) {
-                                                            <span class="badge bg-secondary me-1">@g.path("name").asText("")</span>
-                                                        }
-                                                    } else { N/A }
-                                                }
+                                            @defining(details.path("genres")) { gs =>
+                                                @if(gs.isArray) {
+                                                    @for(g <- gs.elements().asScala) {
+                                                        <span class="badge bg-secondary me-1">@g.path("name").asText("")</span>
+                                                    }
+                                                } else { N/A }
+                                            }
                                             </td>
                                         </tr>
                                         <tr>
                                             <th>Production companies</th>
                                             <td>
-                                                @defining(details.path("production_companies")) { pcs =>
-                                                    @if(pcs.isArray) {
-                                                        @for(c <- pcs.elements().asScala) {
-                                                            <span class="badge bg-light text-dark border me-1">@c.path("name").asText("")</span>
-                                                        }
-                                                    } else { N/A }
-                                                }
+                                            @defining(details.path("production_companies")) { pcs =>
+                                                @if(pcs.isArray) {
+                                                    @for(c <- pcs.elements().asScala) {
+                                                        <span class="badge bg-light text-dark border me-1">@c.path("name").asText("")</span>
+                                                    }
+                                                } else { N/A }
+                                            }
                                             </td>
                                         </tr>
                                     </tbody>
@@ -113,11 +113,11 @@
         @if(itemType == "tv") {
             <div class="row mt-4">
                 <div class="col-md-4 d-flex align-items-stretch">
-                    @defining(details.path("poster_path").asText("")) { p =>
-                        @if(p != "") {
-                            <img src="https://image.tmdb.org/t/p/w500@p" alt="poster" class="rounded shadow w-100 h-100" style="object-fit:cover;">
+                @defining(details.path("poster_path").asText("")) { p =>
+                    @if(p != "") {
+                        <img src="https://image.tmdb.org/t/p/w500@p" alt="poster" class="rounded shadow w-100 h-100" style="object-fit:cover;">
                         }
-                    }
+                }
                 </div>
 
                 <div class="col-md-8">
@@ -170,35 +170,35 @@
                                         <tr>
                                             <th>Homepage</th>
                                             <td>
-                                                @defining(details.path("homepage").asText("")) { hp =>
-                                                    @if(hp != "") {
-                                                        <a href="@hp" target="_blank">@hp</a>
-                                                    } else { N/A }
-                                                }
+                                            @defining(details.path("homepage").asText("")) { hp =>
+                                                @if(hp != "") {
+                                                    <a href="@hp" target="_blank">@hp</a>
+                                                } else { N/A }
+                                            }
                                             </td>
                                         </tr>
                                         <tr>
                                             <th>Genres</th>
                                             <td>
-                                                @defining(details.path("genres")) { gs =>
-                                                    @if(gs.isArray) {
-                                                        @for(g <- gs.elements().asScala) {
-                                                            <span class="badge bg-secondary me-1">@g.path("name").asText("")</span>
-                                                        }
-                                                    } else { N/A }
-                                                }
+                                            @defining(details.path("genres")) { gs =>
+                                                @if(gs.isArray) {
+                                                    @for(g <- gs.elements().asScala) {
+                                                        <span class="badge bg-secondary me-1">@g.path("name").asText("")</span>
+                                                    }
+                                                } else { N/A }
+                                            }
                                             </td>
                                         </tr>
                                         <tr>
                                             <th>Networks</th>
                                             <td>
-                                                @defining(details.path("networks")) { ns =>
-                                                    @if(ns.isArray) {
-                                                        @for(n <- ns.elements().asScala) {
-                                                            <span class="badge bg-light text-dark border me-1">@n.path("name").asText("")</span>
-                                                        }
-                                                    } else { N/A }
-                                                }
+                                            @defining(details.path("networks")) { ns =>
+                                                @if(ns.isArray) {
+                                                    @for(n <- ns.elements().asScala) {
+                                                        <span class="badge bg-light text-dark border me-1">@n.path("name").asText("")</span>
+                                                    }
+                                                } else { N/A }
+                                            }
                                             </td>
                                         </tr>
                                     </tbody>
@@ -232,7 +232,7 @@
                                     <td>@scores.fleschReadingEase</td>
                                 </tr>
                                 <tr>
-                                    <th>Flesch–Kincaid Grade Level</th>
+                                    <th>Flesch-Kincaid Grade Level</th>
                                     <td>@scores.fleschKincaidGrade</td>
                                 </tr>
                                 <tr>
@@ -255,4 +255,81 @@
 
         </div>
     </div>
+
+    @* ── LIVE CARDS SECTION ─────────────────────────────────────────────── *@
+    @* Container that receives cards pushed from the BroadcastHub via WS    *@
+    <div class="container mt-4">
+        <h5 class="mb-3">Live updates</h5>
+        <div id="live-cards"></div>
+    </div>
+
+    <script>
+            @* Build the WS URL using Play's reverse router.
+               itemType is already in scope from the template parameters above. *@
+            var wsUrl = "@{
+            if(itemType == "movie")
+                routes.HomeController.movieWs().webSocketURL(request)
+            else
+                routes.HomeController.tvWs().webSocketURL(request)
+        }";
+
+            var ws = new WebSocket(wsUrl);
+
+            @* onmessage fires for every ObjectNode the server pushes.
+               source field tells us which delivery path the card came through:
+                 "seed"  = replayed from searchCache at connect time
+                 "live"  = delivered live via BroadcastHub right now
+                 "fetch" = fallback (source tag not yet set server-side)        *@
+            ws.onmessage = function(event) {
+                var item = JSON.parse(event.data);
+
+                var badge = item.source === "live"  ? "live"
+                        : item.source === "seed"  ? "cached"
+                                :                           "fetch";
+
+                console.log("[" + badge + "] " + (item.title || item.name) + " (id=" + item.id + ")");
+
+                renderCard(item, badge);
+            };
+
+            ws.onopen  = function()  { console.log("WS connected: " + wsUrl); };
+            ws.onclose = function()  { console.log("WS closed"); };
+            ws.onerror = function(e) { console.error("WS error", e); };
+
+            function renderCard(item, badge) {
+                var container = document.getElementById("live-cards");
+
+                var title    = item.title || item.name || "Unknown";
+                var overview = item.overview || "";
+                var vote     = item.vote_average || 0;
+                var poster   = item.poster_path
+                        ? "https://image.tmdb.org/t/p/w92" + item.poster_path
+                        : "";
+
+                var badgeClass = badge === "live"   ? "bg-success"
+                        : badge === "cached" ? "bg-secondary"
+                                :                      "bg-primary";
+
+                var card = document.createElement("div");
+                card.className = "card mb-2 shadow-sm";
+                card.innerHTML =
+                        '<div class="card-body d-flex gap-3 align-items-start">' +
+                        (poster
+                                ? '<img src="' + poster + '" style="width:46px;height:69px;object-fit:cover;border-radius:4px">'
+                                : '') +
+                        '<div class="flex-grow-1">' +
+                        '<h6 class="mb-1">' + title +
+                        ' <span class="badge ' + badgeClass + ' ms-1" style="font-size:10px">' + badge + '</span>' +
+                        '</h6>' +
+                        '<p class="mb-1 text-muted" style="font-size:12px">' +
+                        overview.substring(0, 120) + (overview.length > 120 ? "..." : "") +
+                        '</p>' +
+                        '<small class="text-muted">&#9733; ' + vote + '</small>' +
+                        '</div>' +
+                        '</div>';
+
+                container.prepend(card);
+            }
+    </script>
+
 }
